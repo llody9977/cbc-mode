@@ -12,10 +12,10 @@
 - Review date: 2026-08-22
 - Reviewer: Antigravity (doc-review skill, whole-project scope)
 - Branch: main
-- Commit: `2e6d97cd5278b07df00da299a7f132772b07f2b0`
+- Commit: `6698eb0598e2d1ff84c0cfc0c7eb47970618cd5b`
 - Worktree: Clean
-- Review state ID: `c27b8814707cd3420dc893e92fba3fac13b715efcfa493bfd409622ac090c7a2`
-- Scoped content fingerprint: `7a64c5c3ff905334d99547a6175d34224a6a2a5ba3c47c328cc2b86c8532f6ca`
+- Review state ID: `a4c32e8bc2b3a0024ccda6d27427b3548110e2a0dea6fe33e3e3804ea9dbd8b0`
+- Scoped content fingerprint: `2537e5a9028c0fc66feccd1e772ba16800b7bba76610085ade1233dd24b6d5f6`
 - State-capture command: `python3 scripts/capture_review_state.py`
 - Baseline changed during review: No
 
