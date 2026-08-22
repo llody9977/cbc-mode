@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "decisions": [
+    {
+      "id": "CD-0001",
+      "title": "Structure CBC mode security analysis around a 3-root-cause / 4-vector taxonomy with AEAD defensive remediation",
+      "status": "accepted",
+      "implementation_state": "implemented",
+      "scope": {
+        "files": [
+          "docs/index.html",
+          "docs/js/attacks.mjs",
+          "docs/js/crypto.mjs"
+        ],
+        "concepts": [
+          "CBC attack taxonomy",
+          "CBC root causes",
+          "bit-flipping malleability",
+          "padding oracle decryption",
+          "predictable IV",
+          "CBC-R forgery",
+          "AEAD defense"
+        ]
+      },
+      "originating_feedback": "Initial repository design requested a comprehensive, non-theoretical explanation of why AES-CBC mode is unsafe, using llody9977/ecb-mode as a structural reference.",
+      "decision": "Structured the document and interactive demonstrations around CBC's three core root causes: (1) No ciphertext integrity / malleability, (2) Unauthenticated decryption with padding oracle feedback, and (3) Predictable/chained Initialization Vectors. Mapped these root causes directly to four practical attack vectors: Vector 1 (Bit-flipping privilege escalation), Vector 2 (Vaudenay 2002 padding oracle decryption), Vector 3 (BEAST predictable IV chosen-plaintext break), and Vector 4 (CBC-R padding oracle arbitrary ciphertext forgery). Paired all weaknesses with defensive AEAD remediation (AES-GCM / ChaCha20-Poly1305) and residual risk analysis (nonce management).",
+      "rationale": "CBC mode's vulnerabilities are mathematically distinct from ECB's determinism. While ECB fails IND-CPA due to block independence under a fixed key, CBC fails primarily due to lack of ciphertext integrity, predictable IVs, and side-channel leakage during unpadding. Grouping the failure modes into 3 root causes and 4 actionable vectors provides an accurate, recall-first mental model while preventing narrative drift.",
+      "authoritative_sources": [
+        {
+          "title": "NIST SP 800-38A, Recommendation for Block Cipher Modes of Operation",
+          "url": "https://csrc.nist.gov/pubs/sp/800/38/a/final",
+          "supports": "CBC mode definition and explicit requirement that the IV shall be unpredictable (§6.2)"
+        },
+        {
+          "title": "Vaudenay, Security Flaws Induced by CBC Padding — Applications to SSL, IPSEC, WTLS, EUROCRYPT 2002",
+          "url": "https://link.springer.com/chapter/10.1007/3-540-46035-7_35",
+          "supports": "mathematical formulation of padding oracle decryption and CBC-R forgery"
+        },
+        {
+          "title": "Duong & Rizzo, Here Come the XOR Ninjas (The BEAST Attack), CRYPTO 2011",
+          "url": "https://www.iacr.org/archive/crypto2011/68410525/68410525.pdf",
+          "supports": "practical chosen-plaintext attack mechanics against chained/predictable IVs in TLS 1.0 (CVE-2011-3389)"
+        },
+        {
+          "title": "RFC 8446, The Transport Layer Security (TLS) Protocol Version 1.3",
+          "url": "https://datatracker.ietf.org/doc/html/rfc8446",
+          "supports": "formal deprecation and removal of CBC mode in favor of mandatory AEAD"
+        }
+      ],
+      "verification_methods": [
+        "Verified all 4 attack vectors in automated test suite (node --test, 7/7 passing) running real Web Crypto AES.",
+        "Verified AES-128-CBC encryption and decryption against official NIST SP 800-38A Section F.2.1 test vectors.",
+        "Generated theme-aware SVG diagrams illustrating exact data flows and verified rendering in browser."
+      ],
+      "approved_outcome": "docs/index.html presents the 3-root-cause / 4-vector taxonomy with live in-browser demonstrations for every vector; docs/js/attacks.mjs and test/attacks.test.mjs implement and test every vector against real AES.",
+      "invalidation_conditions": [
+        "A standard CBC weakness is identified that cannot be attributed to lack of integrity, padding side-channels, or predictable IVs, necessitating a fourth root cause.",
+        "A formal revision to NIST SP 800-38A changes CBC mode specifications."
+      ],
+      "related_decisions": [],
+      "supersedes": [],
+      "superseded_by": null,
+      "originated_on": "2026-08-22",
+      "last_reviewed_on": "2026-08-22"
+    }
+  ]
+}

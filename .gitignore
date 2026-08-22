@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Secrets / local env (never commit; ignoring is a backstop, not a substitute)
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+
+# Virtualenvs / build / OS cruft
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.DS_Store
+
+# Node
+node_modules/

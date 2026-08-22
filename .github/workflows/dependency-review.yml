@@ -1,0 +1,19 @@
+# Block pull requests that add vulnerable or disallowed dependencies.
+name: Dependency review
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: dependency-review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high
