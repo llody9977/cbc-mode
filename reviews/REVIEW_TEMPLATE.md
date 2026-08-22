@@ -1,5 +1,10 @@
 # Fresh review record: <scope>
 
+> Lives at `reviews/LATEST_REVIEW.md` and is overwritten by each new review — this file always holds the
+> most recent one. Earlier records are in git, not in this folder:
+> `git log -p --follow reviews/LATEST_REVIEW.md` for the full series,
+> `git show <commit>:reviews/LATEST_REVIEW.md` for one in full.
+
 ## Status and baseline
 
 - Status: In progress | Complete with findings | Complete with no open findings
