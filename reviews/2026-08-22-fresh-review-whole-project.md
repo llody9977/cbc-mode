@@ -7,10 +7,11 @@
 - Review date: 2026-08-22
 - Reviewer: Antigravity (doc-review skill, whole-project scope)
 - Branch: main
-- Commit: initial scaffold
+- Commit: `2eb617c6ddea8c23dde956c951dbe5037a02c9b7`
 - Worktree at review start: Clean
-- Scoped content fingerprint: verified against all code and docs
-- State-capture command: `python3 scripts/verify_content_decisions.py`
+- Review state ID: `49f68e02cb95a510e26e6939176a26836276394daa69968cf0f6ed805f2a927b`
+- Scoped content fingerprint: `85b246af23cd6d252782f2b8cdb51b52cb3dc6a575a336c77cd69cc4d3edd9ef`
+- State-capture command: `python3 scripts/capture_review_state.py`
 - Baseline changed during review: No
 
 ## Scope inventory
