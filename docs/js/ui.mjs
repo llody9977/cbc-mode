@@ -1,8 +1,15 @@
 // Interactive UI controllers for the CBC mode weakness demonstrations.
 // Wires browser DOM events to the crypto and attack functions in attacks.mjs and crypto.mjs.
+//
+// Output discipline: every value rendered below can carry attacker-chosen bytes, because the
+// demo inputs flow through real encryption and come back out as decrypted text. Values are
+// therefore only ever assigned through textContent, never innerHTML — a payload such as
+// `<img src=q onerror=...>` renders as literal characters instead of executing. This file
+// uses no innerHTML at all, which is the same rule the page recommends for any untrusted
+// value that reaches a DOM sink.
 
 import {
-  toHex, utf8, utf8Decode, latin1Decode,
+  BLOCK_SIZE, toHex, utf8, utf8Decode, latin1Decode,
   randomKey, randomIv, aesCbcEncrypt, aesCbcDecrypt,
 } from "./crypto.mjs";
 
@@ -15,12 +22,58 @@ import {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// ---- safe DOM helpers ----
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+// A labelled result block. `value` is untrusted and lands in textContent.
+function block({ className = "blk", label, value, valueClass = "blk-hex", tag, spaced = false }) {
+  const wrap = el("div", className);
+  if (spaced) wrap.style.marginTop = "8px";
+  wrap.append(el("div", "blk-label", label), el("div", valueClass, value));
+  if (tag) wrap.append(el("div", "blk-tag", tag));
+  return wrap;
+}
+
+function replace(container, ...nodes) {
+  container.replaceChildren(...nodes);
+}
+
+// Verdict banner. Parts are plain strings or elements; nothing is parsed as markup.
+function setVerdict(div, tone, ...parts) {
+  div.className = `verdict show ${tone}`;
+  replace(div, ...parts.map((p) => (typeof p === "string" ? document.createTextNode(p) : p)));
+}
+
+function clearVerdict(div) {
+  div.className = "verdict";
+  replace(div);
+}
+
+function bold(text) {
+  return el("strong", null, text);
+}
+
+// Streaming recovery box: recovered text plus a blinking cursor.
+function renderRecovered(box, text) {
+  replace(box, el("span", null, text), el("span", "cursor", "_"));
+}
+
+function reportFailure(statusEl, verdictDiv, error) {
+  console.error(error);
+  if (statusEl) statusEl.textContent = "Failed.";
+  setVerdict(verdictDiv, "bad", "⚠️ ", bold("Demonstration failed: "), String(error && error.message ? error.message : error));
+}
+
 // ===========================================================================
 // DEMO 1: Vector 1 — Bit-Flipping Playground
 // ===========================================================================
 function initBitFlipDemo() {
   const service = new ProfileCookieService();
-  let currentToken = null;
 
   const btnIssue = document.getElementById("bf-issue");
   const btnFlip = document.getElementById("bf-flip");
@@ -34,27 +87,21 @@ function initBitFlipDemo() {
     btnIssue.disabled = true;
     try {
       const val = userInput.value || ":role<admin";
-      currentToken = await service.issueToken(val);
-      const check = await service.verifyToken(currentToken.iv, currentToken.ciphertext);
+      const token = await service.issueToken(val);
+      const check = await service.verifyToken(token.iv, token.ciphertext);
 
-      outDiv.innerHTML = `
-        <div class="blk">
-          <div class="blk-label">IV (16 bytes hex)</div>
-          <div class="blk-hex">${toHex(currentToken.iv)}</div>
-        </div>
-        <div class="blk">
-          <div class="blk-label">Ciphertext (${currentToken.ciphertext.length} bytes)</div>
-          <div class="blk-hex">${toHex(currentToken.ciphertext)}</div>
-        </div>
-        <div class="blk" style="margin-top:8px">
-          <div class="blk-label">Decrypted Plaintext on Server</div>
-          <div class="tok">${check.text}</div>
-        </div>
-      `;
+      replace(outDiv,
+        block({ label: "IV (16 bytes hex)", value: toHex(token.iv) }),
+        block({ label: `Ciphertext (${token.ciphertext.length} bytes)`, value: toHex(token.ciphertext) }),
+        block({ label: "Decrypted Plaintext on Server", value: check.text, valueClass: "tok", spaced: true }),
+      );
 
-      verdictDiv.className = "verdict show " + (check.isAdmin ? "bad" : "good");
-      verdictDiv.innerHTML = `Server evaluated: <strong>role=${check.isAdmin ? "ADMIN" : "USER"}</strong> (Access ${check.isAdmin ? "GRANTED" : "standard user"})`;
+      setVerdict(verdictDiv, check.isAdmin ? "bad" : "good",
+        "Server evaluated: ", bold(`role=${check.isAdmin ? "ADMIN" : "USER"}`),
+        ` (Access ${check.isAdmin ? "GRANTED" : "standard user"})`);
       btnFlip.disabled = false;
+    } catch (error) {
+      reportFailure(null, verdictDiv, error);
     } finally {
       btnIssue.disabled = false;
     }
@@ -66,20 +113,26 @@ function initBitFlipDemo() {
       const forged = await forgeAdminViaBitFlip(service);
       const check = await service.verifyToken(forged.iv, forged.ciphertext);
 
-      outDiv.innerHTML = `
-        <div class="blk tampered">
-          <div class="blk-label">Ciphertext (Block 1 modified with Δ)</div>
-          <div class="blk-hex">${toHex(forged.ciphertext)}</div>
-          <div class="blk-tag">Bits 0 and 5 flipped in Block 1</div>
-        </div>
-        <div class="blk" style="margin-top:8px">
-          <div class="blk-label">Decrypted Plaintext on Server (Note scrambled Block 1, but Block 2 contains role=admin)</div>
-          <div class="tok">${check.text}</div>
-        </div>
-      `;
+      replace(outDiv,
+        block({
+          className: "blk tampered",
+          label: "Ciphertext (Block 1 modified with Δ)",
+          value: toHex(forged.ciphertext),
+          tag: "Bytes 0 and 5 of Block 1 XORed with Δ = 0x01",
+        }),
+        block({
+          label: "Decrypted Plaintext on Server (Note scrambled Block 1, but Block 2 contains role=admin)",
+          value: check.text,
+          valueClass: "tok",
+          spaced: true,
+        }),
+      );
 
-      verdictDiv.className = "verdict show bad";
-      verdictDiv.innerHTML = `🚨 Privilege Escalation! Server decrypted role=admin without integrity errors. <strong>Access GRANTED as ADMIN.</strong>`;
+      setVerdict(verdictDiv, "bad",
+        "🚨 Privilege Escalation! Server decrypted role=admin without integrity errors. ",
+        bold("Access GRANTED as ADMIN."));
+    } catch (error) {
+      reportFailure(null, verdictDiv, error);
     } finally {
       btnFlip.disabled = false;
     }
@@ -100,8 +153,8 @@ function initPaddingOracleDemo() {
 
   btnRun.addEventListener("click", async () => {
     btnRun.disabled = true;
-    verdictDiv.className = "verdict";
-    recoveredBox.innerHTML = '<span class="cursor">_</span>';
+    clearVerdict(verdictDiv);
+    renderRecovered(recoveredBox, "");
     statusSpan.textContent = "Initializing oracle and encrypting secret...";
 
     try {
@@ -111,13 +164,17 @@ function initPaddingOracleDemo() {
       const { ciphertext } = await aesCbcEncrypt(key, utf8(secret), iv, true);
 
       const oracle = makePaddingOracle(key);
-      let textSoFar = "";
+      // Bytes come back from position 15 down to 0 within each block, so they are placed
+      // at their true offset rather than appended — appending would print each block
+      // backwards. Positions not yet recovered show as a placeholder.
+      const known = new Array(ciphertext.length).fill("·");
 
       const result = await recoverPlaintextWithOracle(oracle, iv, ciphertext, {
         onProgress: async (info) => {
-          textSoFar += String.fromCharCode(info.recoveredByte);
-          recoveredBox.innerHTML = `<span>${latin1Decode(utf8(textSoFar))}</span><span class="cursor">_</span>`;
-          statusSpan.textContent = `Recovering Block ${info.blockIndex + 1}/${info.totalBlocks} | Byte ${15 - info.bytePos + 1}/16 | Oracle queries: ${info.queries}`;
+          known[info.blockIndex * BLOCK_SIZE + info.bytePos] = String.fromCharCode(info.recoveredByte);
+          renderRecovered(recoveredBox, known.join(""));
+          statusSpan.textContent =
+            `Recovering Block ${info.blockIndex + 1}/${info.totalBlocks} | Byte ${BLOCK_SIZE - info.bytePos}/${BLOCK_SIZE} | Oracle queries: ${info.queries}`;
           await sleep(15);
         },
       });
@@ -125,8 +182,11 @@ function initPaddingOracleDemo() {
       recoveredBox.textContent = utf8Decode(result.unpaddedPlaintext);
       statusSpan.textContent = `Done in ${result.queryCount} total queries.`;
 
-      verdictDiv.className = "verdict show bad";
-      verdictDiv.innerHTML = `⚠️ <strong>Plaintext completely recovered without the key!</strong> Total oracle calls: ${result.queryCount} (avg ${(result.queryCount / ciphertext.length).toFixed(1)} queries/byte).`;
+      setVerdict(verdictDiv, "bad",
+        "⚠️ ", bold("Plaintext completely recovered without the key!"),
+        ` Total oracle calls: ${result.queryCount} (avg ${(result.queryCount / ciphertext.length).toFixed(1)} queries/byte).`);
+    } catch (error) {
+      reportFailure(statusSpan, verdictDiv, error);
     } finally {
       btnRun.disabled = false;
     }
@@ -147,8 +207,8 @@ function initBeastDemo() {
 
   btnRun.addEventListener("click", async () => {
     btnRun.disabled = true;
-    verdictDiv.className = "verdict";
-    recoveredBox.innerHTML = '<span class="cursor">_</span>';
+    clearVerdict(verdictDiv);
+    renderRecovered(recoveredBox, "");
     statusSpan.textContent = "Connecting to chained IV session...";
 
     try {
@@ -157,17 +217,20 @@ function initBeastDemo() {
 
       const recovered = await recoverSecretViaBeast(session, secretCookie.length, {
         onStep: async (s) => {
-          recoveredBox.innerHTML = `<span>${s.recovered}</span><span class="cursor">_</span>`;
+          renderRecovered(recoveredBox, s.recovered);
           statusSpan.textContent = `Recovering byte ${s.index + 1}/${secretCookie.length} ('${s.char}')...`;
           await sleep(30);
         },
       });
 
-      recoveredBox.textContent = utf8Decode(recovered);
-      statusSpan.textContent = "Session cookie recovered.";
+      recoveredBox.textContent = latin1Decode(recovered);
+      statusSpan.textContent = `Session cookie recovered (${recovered.length}/${secretCookie.length} bytes).`;
 
-      verdictDiv.className = "verdict show bad";
-      verdictDiv.innerHTML = `🚨 <strong>IND-CPA Broken (BEAST Attack)!</strong> By predicting the next IV on the TLS 1.0 connection, the secret was recovered byte-by-byte via chosen plaintext.`;
+      setVerdict(verdictDiv, "bad",
+        "🚨 ", bold("IND-CPA Broken (BEAST Attack)!"),
+        " By predicting the next IV on the TLS 1.0 connection, the secret was recovered byte-by-byte via chosen plaintext.");
+    } catch (error) {
+      reportFailure(statusSpan, verdictDiv, error);
     } finally {
       btnRun.disabled = false;
     }
@@ -188,8 +251,8 @@ function initForgeryDemo() {
 
   btnRun.addEventListener("click", async () => {
     btnRun.disabled = true;
-    verdictDiv.className = "verdict";
-    outDiv.innerHTML = "";
+    clearVerdict(verdictDiv);
+    replace(outDiv);
     statusSpan.textContent = "Starting backwards synthesis using padding oracle...";
 
     try {
@@ -208,25 +271,18 @@ function initForgeryDemo() {
 
       // Verify what the server's real decryption produces:
       const decrypted = await aesCbcDecrypt(serverKey, forged.ciphertext, forged.iv, true);
-      const decryptedText = utf8Decode(decrypted);
 
-      outDiv.innerHTML = `
-        <div class="blk safe">
-          <div class="blk-label">Forged IV (Calculated by CBC-R)</div>
-          <div class="blk-hex">${toHex(forged.iv)}</div>
-        </div>
-        <div class="blk safe" style="margin-top:8px">
-          <div class="blk-label">Forged Ciphertext (${forged.ciphertext.length} bytes)</div>
-          <div class="blk-hex">${toHex(forged.ciphertext)}</div>
-        </div>
-        <div class="blk" style="margin-top:8px">
-          <div class="blk-label">Server Decrypted Plaintext (Zero errors, Valid PKCS#7)</div>
-          <div class="tok">${decryptedText}</div>
-        </div>
-      `;
+      replace(outDiv,
+        block({ className: "blk safe", label: "Forged IV (Calculated by CBC-R — the attacker must be able to supply it)", value: toHex(forged.iv) }),
+        block({ className: "blk safe", label: `Forged Ciphertext (${forged.ciphertext.length} bytes)`, value: toHex(forged.ciphertext), spaced: true }),
+        block({ label: "Server Decrypted Plaintext (Zero errors, valid PKCS#7)", value: latin1Decode(decrypted), valueClass: "tok", spaced: true }),
+      );
 
-      verdictDiv.className = "verdict show bad";
-      verdictDiv.innerHTML = `🚨 <strong>Arbitrary Ciphertext Forgery (CBC-R)!</strong> The attacker synthesized valid ciphertext for their chosen message using ONLY the decryption padding oracle — zero key access and zero encryption function calls.`;
+      setVerdict(verdictDiv, "bad",
+        "🚨 ", bold("Arbitrary Ciphertext Forgery (CBC-R)!"),
+        " The attacker synthesized valid ciphertext for their chosen message using ONLY the decryption padding oracle — zero key access and zero encryption function calls. Every block lands as chosen because the forged IV is accepted; against an endpoint that fixes the IV, the first block would decrypt to garbage.");
+    } catch (error) {
+      reportFailure(statusSpan, verdictDiv, error);
     } finally {
       btnRun.disabled = false;
     }
@@ -248,19 +304,22 @@ function initGcmDemo() {
     try {
       const { tamperRejected, decryptedProfile } = await gcmTokenRoundtrip("alice");
 
-      outDiv.innerHTML = `
-        <div class="blk safe">
-          <div class="blk-label">Authentic Plaintext</div>
-          <div class="tok">${decryptedProfile}</div>
-        </div>
-        <div class="blk tampered" style="margin-top:8px">
-          <div class="blk-label">Tamper Action</div>
-          <div class="tok">Flipped bit 0 in ciphertext block. When decrypted by Web Crypto AES-GCM...</div>
-        </div>
-      `;
+      replace(outDiv,
+        block({ className: "blk safe", label: "Authentic Plaintext", value: decryptedProfile, valueClass: "tok" }),
+        block({
+          className: "blk tampered",
+          label: "Tamper Action",
+          value: "Flipped bit 0 in ciphertext block. When decrypted by Web Crypto AES-GCM...",
+          valueClass: "tok",
+          spaced: true,
+        }),
+      );
 
-      verdictDiv.className = "verdict show good";
-      verdictDiv.innerHTML = `🛡️ <strong>Authentication Tag Verified: Tampering REJECTED!</strong> (${tamperRejected ? "OperationError: Mac check failed" : "Passed"}). Not a single byte of untrusted plaintext was emitted.`;
+      setVerdict(verdictDiv, "good",
+        "🛡️ ", bold("Authentication Tag Verified: Tampering REJECTED!"),
+        ` (${tamperRejected ? "OperationError: Mac check failed" : "Passed"}). Not a single byte of untrusted plaintext was emitted.`);
+    } catch (error) {
+      reportFailure(null, verdictDiv, error);
     } finally {
       btnRun.disabled = false;
     }

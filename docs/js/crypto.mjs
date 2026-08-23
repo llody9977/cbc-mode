@@ -94,6 +94,25 @@ export function isValidPkcs7(data, blockSize = BLOCK_SIZE) {
   return true;
 }
 
+// ---- Key handle cache ----
+// Web Crypto key handles are immutable and safe to reuse. The demos import the same key
+// thousands of times over (BEAST alone drives well over a thousand encryptions), and
+// re-importing on every call dominates the wall-clock cost in the browser, so handles are
+// memoized per (algorithm, usages, key bytes). Keys here are ephemeral, in-page demo keys.
+const keyHandles = new Map();
+const KEY_HANDLE_LIMIT = 32;
+
+function importKeyCached(keyBytes, algorithm, usages) {
+  const cacheKey = `${algorithm}|${usages.join(",")}|${toHex(keyBytes)}`;
+  let handle = keyHandles.get(cacheKey);
+  if (!handle) {
+    handle = subtle.importKey("raw", keyBytes, { name: algorithm }, false, usages);
+    if (keyHandles.size >= KEY_HANDLE_LIMIT) keyHandles.delete(keyHandles.keys().next().value);
+    keyHandles.set(cacheKey, handle);
+  }
+  return handle;
+}
+
 // ---- Raw AES single-block primitive (via zero-IV CBC) ----
 async function rawAesEncryptBlockK(cryptoKey, block16) {
   const zeroIv = new Uint8Array(BLOCK_SIZE);
@@ -103,7 +122,7 @@ async function rawAesEncryptBlockK(cryptoKey, block16) {
 
 // ---- AES-CBC Encryption ----
 export async function aesCbcEncrypt(keyBytes, plaintext, iv = randomIv(), pad = true) {
-  const k = await subtle.importKey("raw", keyBytes, { name: "AES-CBC" }, false, ["encrypt"]);
+  const k = await importKeyCached(keyBytes, "AES-CBC", ["encrypt"]);
   if (pad) {
     const ct = await subtle.encrypt({ name: "AES-CBC", iv }, k, plaintext);
     return { iv: new Uint8Array(iv), ciphertext: new Uint8Array(ct) };
@@ -118,7 +137,7 @@ export async function aesCbcEncrypt(keyBytes, plaintext, iv = randomIv(), pad = 
 
 // ---- AES-CBC Decryption ----
 export async function aesCbcDecrypt(keyBytes, ciphertext, iv, unpad = true) {
-  const k = await subtle.importKey("raw", keyBytes, { name: "AES-CBC" }, false, ["decrypt", "encrypt"]);
+  const k = await importKeyCached(keyBytes, "AES-CBC", ["decrypt", "encrypt"]);
   if (unpad) {
     const pt = await subtle.decrypt({ name: "AES-CBC", iv }, k, ciphertext);
     return new Uint8Array(pt);
@@ -141,13 +160,13 @@ export async function aesCbcDecrypt(keyBytes, ciphertext, iv, unpad = true) {
 
 // ---- AES-GCM (Defensive fix: Authenticated Encryption with Associated Data) ----
 export async function aesGcmEncrypt(keyBytes, plaintext, iv = randomIv(12), additionalData = new Uint8Array(0)) {
-  const k = await subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["encrypt"]);
+  const k = await importKeyCached(keyBytes, "AES-GCM", ["encrypt"]);
   const ct = await subtle.encrypt({ name: "AES-GCM", iv, additionalData, tagLength: 128 }, k, plaintext);
   return { iv: new Uint8Array(iv), ciphertext: new Uint8Array(ct) };
 }
 
 export async function aesGcmDecrypt(keyBytes, ciphertext, iv, additionalData = new Uint8Array(0)) {
-  const k = await subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]);
+  const k = await importKeyCached(keyBytes, "AES-GCM", ["decrypt"]);
   const pt = await subtle.decrypt({ name: "AES-GCM", iv, additionalData, tagLength: 128 }, k, ciphertext);
   return new Uint8Array(pt);
 }

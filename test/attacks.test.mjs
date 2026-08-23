@@ -1,5 +1,6 @@
 // Automated test suite for AES-CBC weaknesses and Web Crypto operations.
-// Verified against official NIST SP 800-38A Section F.2.1 test vectors.
+// The AES-CBC primitive is verified against the official NIST SP 800-38A Section F.2.1
+// test vectors; each attack vector is exercised end-to-end against real Web Crypto AES.
 // Run with: `node --test`.
 
 import { test } from "node:test";
@@ -7,7 +8,7 @@ import assert from "node:assert/strict";
 
 import {
   aesCbcEncrypt, aesCbcDecrypt,
-  padPkcs7, unpadPkcs7, isValidPkcs7, fromHex, toHex, utf8, utf8Decode,
+  padPkcs7, unpadPkcs7, isValidPkcs7, fromHex, toHex, utf8, utf8Decode, latin1Decode,
   randomKey, randomIv,
 } from "../docs/js/crypto.mjs";
 
@@ -81,7 +82,32 @@ test("Vector 2 — Padding oracle recovers multi-block secret ciphertext", async
 
   assert.equal(utf8Decode(result.unpaddedPlaintext), secretText);
   assert.ok(result.queryCount > 0);
-  assert.ok(result.queryCount <= 256 * ciphertext.length);
+  // Worst case is 256 probes per byte plus the false-positive recheck, which runs at most
+  // twice per block. Asserting a bare 256 x L would be a latent flake.
+  const blocks = ciphertext.length / 16;
+  assert.ok(result.queryCount <= 256 * ciphertext.length + 2 * blocks);
+});
+
+test("Vector 2 — Padding oracle reports progress (the path the browser UI uses)", async () => {
+  // Regression guard: the UI always passes onProgress, the earlier tests never did, so a
+  // ReferenceError on this path shipped green. Every browser-facing callback must be covered.
+  const key = randomKey();
+  const iv = randomIv();
+  const secretText = "Progress callback path must not throw";
+  const { ciphertext } = await aesCbcEncrypt(key, utf8(secretText), iv, true);
+
+  const seen = [];
+  const result = await recoverPlaintextWithOracle(makePaddingOracle(key), iv, ciphertext, {
+    onProgress: async (info) => {
+      assert.ok(info.intermediate instanceof Uint8Array);
+      assert.equal(info.intermediate.length, 16);
+      assert.ok(info.queries > 0);
+      seen.push(info.recoveredByte);
+    },
+  });
+
+  assert.equal(utf8Decode(result.unpaddedPlaintext), secretText);
+  assert.equal(seen.length, ciphertext.length);
 });
 
 test("Vector 3 — Predictable/chained IV breaks IND-CPA and recovers secret (BEAST)", async () => {
@@ -89,7 +115,30 @@ test("Vector 3 — Predictable/chained IV breaks IND-CPA and recovers secret (BE
   const session = new ChainedIvSession(secretCookie);
 
   const recovered = await recoverSecretViaBeast(session, secretCookie.length);
-  assert.equal(utf8Decode(recovered), secretCookie);
+  assert.equal(latin1Decode(recovered), secretCookie);
+});
+
+test("Vector 3 — BEAST recovers secrets longer than one block", async () => {
+  // Regression guard: alignment for byte i >= 16 must read its known context from the
+  // recovered secret, not from the request filler. The single-block test above cannot
+  // catch that, and the site's own default cookie is 25 bytes.
+  for (const secretCookie of ["SESSION=auth_99a8b7c6d5e4", "block-boundary-17"]) {
+    const session = new ChainedIvSession(secretCookie);
+    const recovered = await recoverSecretViaBeast(session, secretCookie.length);
+    assert.equal(latin1Decode(recovered), secretCookie);
+  }
+});
+
+test("Vector 3 — BEAST fails loudly rather than returning a truncated secret", async () => {
+  // A session with an unpredictable IV gives the attacker nothing. The recovery must
+  // throw; silently returning a short string would let a caller claim a false success.
+  const session = new ChainedIvSession("SESSION=unrecoverable");
+  session.getNextIv = () => randomIv();
+
+  await assert.rejects(
+    () => recoverSecretViaBeast(session, 21),
+    /BEAST recovery failed at byte 0/
+  );
 });
 
 test("Vector 4 — CBC-R forges valid ciphertext for arbitrary chosen plaintext", async () => {
@@ -101,7 +150,7 @@ test("Vector 4 — CBC-R forges valid ciphertext for arbitrary chosen plaintext"
 
   // Decrypt with real key to verify that the server accepts the forged ciphertext
   const decrypted = await aesCbcDecrypt(key, ciphertext, iv, true);
-  assert.equal(utf8Decode(decrypted), chosenPlaintext);
+  assert.equal(latin1Decode(decrypted), chosenPlaintext);
 });
 
 test("Defensive — AES-GCM rejects tampered ciphertext before any data is trusted", async () => {
