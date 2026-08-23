@@ -12,7 +12,7 @@
 - Review date: 2026-08-23
 - Reviewer: Claude Code (doc-review skill, whole-project scope)
 - Branch: fix/review-16ade34-findings
-- Commit: `b40b896e0530cc627f1086462ba3e8c9a6c52c4d`
+- Commit: `b40b896e0530cc627f1086462ba3e8c9a6c52c4d` on `fix/review-16ade34-findings`. That branch was **squash-merged** as `e5c013a` (PR #3), so `b40b896` is not in `main`'s history. The scoped content fingerprint below was re-verified against `e5c013a` and matches exactly, so the reviewed content is intact on `main` — the commit pointer is stale, the evidence is not. Retrieve the original commits from the PR's branch refs if the per-commit split is needed.
 - Worktree: Clean
 - Review state ID: `03a1f3fc039c2e2aa104ac12b07fde3c311fe246ce04bbc5a09c8bf25fc7656f`
 - Scoped content fingerprint: `8963e13d3549e76197535ff16b240396f1db8accf30d5859ef315635ebc0c3a5`
@@ -27,6 +27,7 @@
 | `27c1e44`, `131a349` | — | Remediation of those findings, plus F-11 found once the first fix stopped masking it. |
 | `83fbcb7` | `4d51a243…` | Closure review — 3 findings (one pre-existing and previously missed, two introduced by the remediation). |
 | `b40b896` | `8963e13d…` | **This record.** Closure findings fixed; affected passes repeated; no open findings. |
+| `e5c013a` | `8963e13d…` | Squash-merge of the above into `main` (PR #3). Fingerprint re-verified and identical, so this record's conclusions carry over unchanged. |
 
 ## Scope inventory
 
@@ -196,7 +197,7 @@ All nine optional gaps from the `16ade34` review are addressed. Two representati
 - **Browser timing is environmental.** The padding-oracle demo stalls when the browser pane is hidden (background-timer throttling) and resumes when fronted. This is why CR-03 exists: no wall-clock figure is asserted on the page. Correctness and cost were established in Node instead, over 60 runs.
 - **Worst-case query bounds are not proven,** only bounded by measurement across 60 runs plus the structure of the false-positive recheck.
 - **Passes were not all repeated at `b40b896`.** `b40b896` changes three prose regions of `docs/index.html` and nothing else. Factual correctness on those regions, cross-format, and every mechanical check were repeated; the visual, decision-reconciliation, and completeness passes were not, because no artifact in their scope changed.
-- **This branch is unmerged.** The record describes `fix/review-16ade34-findings`, not `main`, and the published GitHub Pages site still serves the `16ade34` content until this is merged and deployed.
+- **Merged and deployed.** The reviewed branch was squash-merged as `e5c013a` and GitHub Pages deployed from it, so the live site now serves the reviewed content. Because the merge was a squash, the five original commits are absent from `main`; the content fingerprint, not the commit id, is what ties this record to what shipped.
 
 ## Closure attestation
 
