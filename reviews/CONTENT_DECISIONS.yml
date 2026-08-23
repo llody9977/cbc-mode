@@ -4,7 +4,7 @@
     {
       "id": "CD-0001",
       "title": "Structure CBC mode security analysis around a 3-root-cause / 4-vector taxonomy with AEAD defensive remediation",
-      "status": "accepted",
+      "status": "superseded",
       "implementation_state": "implemented",
       "scope": {
         "files": [
@@ -59,9 +59,339 @@
       ],
       "related_decisions": [],
       "supersedes": [],
-      "superseded_by": null,
+      "superseded_by": "CD-0002",
       "originated_on": "2026-08-22",
-      "last_reviewed_on": "2026-08-22"
+      "last_reviewed_on": "2026-08-23"
+    },
+    {
+      "id": "CD-0002",
+      "title": "Reaffirm the 3-root-cause / 4-vector taxonomy while correcting its source attributions and demo verification",
+      "status": "accepted",
+      "implementation_state": "implemented",
+      "scope": {
+        "files": [
+          "docs/index.html",
+          "README.md",
+          "docs/js/attacks.mjs",
+          "docs/js/crypto.mjs",
+          "docs/js/ui.mjs",
+          "test/attacks.test.mjs"
+        ],
+        "concepts": [
+          "CBC attack taxonomy",
+          "CBC root causes",
+          "CBC-R attribution",
+          "BEAST citation",
+          "NIST SP 800-38A normative wording",
+          "demo verification",
+          "test coverage"
+        ]
+      },
+      "originating_feedback": "Fresh review at commit 16ade34 found the taxonomy sound but three source attributions contradicted by primary evidence, and two of the four advertised live demos not working in the browser.",
+      "decision": "Keep CD-0001's taxonomy and AEAD remediation structure unchanged. Correct three attributions: CBC-R is credited to Rizzo & Duong (WOOT 2010), not Vaudenay 2002; the BEAST paper is cited as a 2011 Netifera white paper via an archived link, not as a CRYPTO 2011 proceedings paper; SP 800-38A's IV requirement is quoted as 'must be unpredictable', its actual wording, rather than 'shall'. Repair the Vector 2 and Vector 3 demonstrations and require every browser-facing code path to be covered by a test.",
+      "rationale": "The taxonomy met no invalidation condition and is reaffirmed. Two separate conditions from the guide were met: new primary evidence contradicted the recorded rationale (the WOOT 2010 paper introduces CBC-R as its own contribution), and executable artifacts demonstrated that the approved outcome did not work (Vector 2 threw a ReferenceError on the UI's progress-callback path; Vector 3 truncated at 16 bytes on the site's own 25-byte default cookie, then reported success). Both defects were invisible to the suite because the tests exercised neither the callback path nor a secret longer than one block.",
+      "authoritative_sources": [
+        {
+          "title": "NIST SP 800-38A, Recommendation for Block Cipher Modes of Operation",
+          "url": "https://csrc.nist.gov/pubs/sp/800/38/a/final",
+          "supports": "CBC definition; §6.2 states the IV 'need not be secret, but it must be unpredictable' (also §5.3 and Appendix C). The document uses 'must', not the RFC 2119 keyword 'shall'."
+        },
+        {
+          "title": "Rizzo & Duong, Practical Padding Oracle Attacks, USENIX WOOT 2010",
+          "url": "https://www.usenix.org/legacy/event/woot10/tech/full_papers/Rizzo.pdf",
+          "supports": "Origin of CBC-R: 'We designed the following technique ... we are surprised that it was not published before. We call it CBC-R encryption.' Conclusion: 'We also introduced CBC-R, a new technique that turns a decryption oracle into an encryption oracle.'"
+        },
+        {
+          "title": "Duong & Rizzo, Here Come The ⊕ Ninjas (The BEAST Attack), Netifera white paper, 13 May 2011",
+          "url": "https://web.archive.org/web/2013/http://netifera.com/research/beast/beast_DRAFT_0621.pdf",
+          "supports": "Chosen-plaintext attack against chained/predictable IVs in SSL 3.0 and TLS 1.0 (CVE-2011-3389). A white paper presented at ekoparty 2011, not a refereed proceedings paper; the previously cited iacr.org/archive/crypto2011 URL returns HTTP 404."
+        },
+        {
+          "title": "Vaudenay, Security Flaws Induced by CBC Padding, EUROCRYPT 2002",
+          "url": "https://link.springer.com/chapter/10.1007/3-540-46035-7_35",
+          "supports": "Padding-oracle decryption. Scoped to decryption only; it is not the source of the CBC-R forgery technique."
+        }
+      ],
+      "verification_methods": [
+        "node --test: 10/10 passing, including new coverage for the onProgress path and for secrets longer than one block.",
+        "Padding-oracle recovery stress-run 40x with the progress callback against the site's default secret: 40/40 exact, max 9241 queries for a 64-byte ciphertext.",
+        "Both demos driven in a real browser after the fix; XSS payload retested and rendered as literal text.",
+        "All 21 external links re-checked; the only 404 (the IACR BEAST URL) replaced with an archived copy verified to contain the paper."
+      ],
+      "approved_outcome": "docs/index.html keeps the 3-root-cause / 4-vector structure with corrected citations; all four vectors and the AES-GCM defense run correctly in the browser; test/attacks.test.mjs covers the browser-facing callback path and multi-block secrets.",
+      "invalidation_conditions": [
+        "A CBC weakness is identified that is not attributable to missing integrity, padding side-channels, or predictable IVs, requiring a fourth root cause.",
+        "A revision to NIST SP 800-38A changes the CBC specification or its IV wording.",
+        "The BEAST white paper is republished at a stable primary URL, making the archived link unnecessary.",
+        "Primary evidence emerges that CBC-R was described before Rizzo & Duong 2010."
+      ],
+      "related_decisions": [
+        "CD-0003",
+        "CD-0004",
+        "CD-0005",
+        "CD-0008"
+      ],
+      "supersedes": [
+        "CD-0001"
+      ],
+      "superseded_by": null,
+      "originated_on": "2026-08-23",
+      "last_reviewed_on": "2026-08-23"
+    },
+    {
+      "id": "CD-0003",
+      "title": "State the attacker-supplied-IV prerequisite wherever CBC-R forgery is claimed",
+      "status": "accepted",
+      "implementation_state": "implemented",
+      "scope": {
+        "files": [
+          "docs/index.html",
+          "README.md",
+          "docs/diagrams/generate_diagrams.py",
+          "docs/diagrams/vector4-cbc-r-forgery.svg",
+          "docs/js/ui.mjs"
+        ],
+        "concepts": [
+          "CBC-R forgery",
+          "IV control",
+          "attacker state",
+          "residual risk",
+          "Vector 4"
+        ]
+      },
+      "originating_feedback": "Vector 4 asserted the forged tuple 'decrypts cleanly to the attacker's chosen plaintext with 100% valid PKCS#7 padding', with no mention that the endpoint must accept an attacker-supplied IV.",
+      "decision": "Every place the CBC-R claim appears — prose, callout, README bullet, diagram, and demo verdict — states that the technique lands every block as chosen only where the IV is attacker-supplied, and that otherwise the first block decrypts to garbage. Drop the '100%' phrasing.",
+      "rationale": "The cited paper documents this limitation explicitly and calls it unsolved in the general case. Omitting it overstated attacker capability and hid a defensive control: an endpoint that fixes the IV degrades the attack. The demonstration supplies its own IV, so without the caveat the page showed only the favorable case while claiming the general one.",
+      "authoritative_sources": [
+        {
+          "title": "Rizzo & Duong, Practical Padding Oracle Attacks, USENIX WOOT 2010",
+          "url": "https://www.usenix.org/legacy/event/woot10/tech/full_papers/Rizzo.pdf",
+          "supports": "'if attackers can set the IV, then the decrypted data will be exactly as what they want without any garbled block. If attackers don't control the IV, then the first block is garbled ... This limitation could prevent some of the highest impact attacks, and we have not found generic way to overcome it.'"
+        }
+      ],
+      "verification_methods": [
+        "Confirmed forgeCiphertextWithOracle computes and returns the IV rather than accepting a fixed one, so the demo depends on the prerequisite it now states.",
+        "Grepped every repetition of the CBC-R claim across prose, README, generator, and rendered SVG."
+      ],
+      "approved_outcome": "A 'Prerequisite — the attacker must be able to supply the IV' callout in Vector 4, the qualifier in the README bullet, a REQUIRES line inside vector4-cbc-r-forgery.svg, and a closing sentence in the demo verdict.",
+      "invalidation_conditions": [
+        "A general technique is published that removes the first-block limitation without controlling the IV.",
+        "The demonstration changes to model a fixed-IV endpoint, which would change which case is shown."
+      ],
+      "related_decisions": [
+        "CD-0002"
+      ],
+      "supersedes": [],
+      "superseded_by": null,
+      "originated_on": "2026-08-23",
+      "last_reviewed_on": "2026-08-23"
+    },
+    {
+      "id": "CD-0004",
+      "title": "Describe the padding oracle as answering block-wide PKCS#7 validity, not 'is the last byte 0x01'",
+      "status": "accepted",
+      "implementation_state": "implemented",
+      "scope": {
+        "files": [
+          "docs/index.html",
+          "docs/diagrams/generate_diagrams.py",
+          "docs/diagrams/vector2-padding-oracle.svg",
+          "docs/js/attacks.mjs",
+          "test/attacks.test.mjs"
+        ],
+        "concepts": [
+          "padding oracle",
+          "false positive",
+          "PKCS#7 validity",
+          "query bound",
+          "Vector 2"
+        ]
+      },
+      "originating_feedback": "The prose claimed 'exactly one value causes D_K(Ci) XOR C' to end in valid padding 0x01' and the diagram stated the oracle 'returns True when D_K(C[i])[15] XOR C'[15] == 0x01' — a biconditional the repository's own code contradicts.",
+      "decision": "State that the oracle reports validity of the whole block, so a second candidate can also return true (for example a block ending 0x02 0x02), and that a working attack disambiguates by perturbing byte 14 and re-querying. Correct the diagram to match, and relax the query bound from an absolute '<= 256 x L' to an approximate figure, since the recheck can exceed it.",
+      "rationale": "attacks.mjs already carried a false-positive guard with a comment naming this exact case, so the page taught a mechanism its own implementation had to work around. The absolute query bound was also asserted in a test, making it a latent flake as well as an inaccurate claim.",
+      "authoritative_sources": [
+        {
+          "title": "Vaudenay, Security Flaws Induced by CBC Padding, EUROCRYPT 2002",
+          "url": "https://link.springer.com/chapter/10.1007/3-540-46035-7_35",
+          "supports": "Padding-oracle decryption mechanism, in which the oracle's answer is the validity of the padding structure rather than a single byte value."
+        }
+      ],
+      "verification_methods": [
+        "Read the guard at docs/js/attacks.mjs and confirmed it re-queries after perturbing byte 14 when padVal == 1.",
+        "40 randomized recoveries of the page's default secret: 40/40 exact, max 9241 queries against a 64-byte ciphertext (bound 256*L + 2*blocks = 16392)."
+      ],
+      "approved_outcome": "A callout under Vector 2 explaining the false positive and the recheck; corrected wording inside vector2-padding-oracle.svg; the test bound widened to 256*L + 2*blocks with a comment stating why.",
+      "invalidation_conditions": [
+        "The demonstration switches to an oracle that reports only the final byte, which would make the simpler statement accurate for that model."
+      ],
+      "related_decisions": [
+        "CD-0002"
+      ],
+      "supersedes": [],
+      "superseded_by": null,
+      "originated_on": "2026-08-23",
+      "last_reviewed_on": "2026-08-23"
+    },
+    {
+      "id": "CD-0005",
+      "title": "Record both NIST SP 800-38D IV-construction ceilings rather than describing 96-bit deterministic IVs as unlimited",
+      "status": "accepted",
+      "implementation_state": "implemented",
+      "scope": {
+        "files": [
+          "docs/index.html"
+        ],
+        "concepts": [
+          "AES-GCM",
+          "nonce uniqueness",
+          "deterministic IV",
+          "RBG-based IV",
+          "invocation limit",
+          "residual risk"
+        ]
+      },
+      "originating_feedback": "The residual-risk section stated that with 96-bit IVs the deterministic construction 'has no invocation limit before rekeying'.",
+      "decision": "State §8's governing 2^-32 IV-reuse bound, then both ceilings: 96-bit deterministic IVs are exempt from the 2^32 global cap but bounded by 2^s where s is the invocation-field width (2^64 under NIST's suggested 32/64-bit layout); the RBG-based construction carries the 2^32 cap. Describe the random field as at least 96 bits rather than exactly 96.",
+      "rationale": "SP 800-38D §8.3 states the deterministic constraints apply 'to any supported IV length, including 96 bits'. 'No invocation limit' contradicted the section the page cited and could lead a reader to skip rekeying entirely.",
+      "authoritative_sources": [
+        {
+          "title": "NIST SP 800-38D, Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC",
+          "url": "https://csrc.nist.gov/pubs/sp/800/38/d/final",
+          "supports": "§8: reuse probability 'shall be no greater than 2-32'. §8.2.2: 'the length of the random field shall be at least 96 bits'. §8.3: the 2^32 cap, and 'For the deterministic construction, the lengths of the two fields imply two additional operational constraints. These constraints apply to any supported IV length, including 96 bits: The bit length of the invocation field limits the number of invocations ... cannot be invoked on more than 2s distinct input sets'."
+        }
+      ],
+      "verification_methods": [
+        "Extracted §8, §8.2.1, §8.2.2 and §8.3 from the SP 800-38D PDF and quoted them directly."
+      ],
+      "approved_outcome": "The residual-risk section states the 2^-32 bound, both construction ceilings with their section numbers, and a closing note that both are uniqueness budgets requiring rekeying.",
+      "invalidation_conditions": [
+        "A revision of SP 800-38D changes the IV constructions or the invocation constraints."
+      ],
+      "related_decisions": [],
+      "supersedes": [],
+      "superseded_by": null,
+      "originated_on": "2026-08-23",
+      "last_reviewed_on": "2026-08-23"
+    },
+    {
+      "id": "CD-0006",
+      "title": "Diagram color convention: green never marks a successful attack",
+      "status": "accepted",
+      "implementation_state": "implemented",
+      "scope": {
+        "files": [
+          "docs/diagrams/generate_diagrams.py",
+          "docs/diagrams/vector1-bit-flipping.svg",
+          "docs/diagrams/vector2-padding-oracle.svg",
+          "docs/diagrams/vector3-predictable-iv.svg",
+          "docs/diagrams/vector4-cbc-r-forgery.svg"
+        ],
+        "concepts": [
+          "diagram color",
+          "semantic color",
+          "visual convention",
+          "detached artifact"
+        ]
+      },
+      "originating_feedback": "Green marked the safe AES-GCM path in one diagram and a successful attack outcome (forged role, matched guess, forged ciphertext) in three others.",
+      "decision": "Fix one convention across every diagram and state it in the generator docstring: RED for attacker-controlled input and successful attack outcomes, GREEN only for a defense holding, PURPLE for oracle interaction, AMBER for a leaked or predictable value, NAVY for a neutral cipher operation. Recolor the four attack-outcome boxes from green to red.",
+      "rationale": "These diagrams are designed to survive detachment from the page, so their color semantics must be self-consistent across the set. A reader who sees green as 'safe' in one figure and 'attack succeeded' in the next can invert the meaning of the whole figure. The generator docstring already claimed 'safe green' as the convention.",
+      "authoritative_sources": [],
+      "verification_methods": [
+        "Regenerated all six SVGs and inspected each rendered in a browser at the dark color scheme.",
+        "Confirmed the generator is now idempotent, so the convention cannot drift between the source and the committed artifacts."
+      ],
+      "approved_outcome": "The convention is documented in the generate_diagrams.py docstring and applied in all six committed SVGs.",
+      "invalidation_conditions": [
+        "The diagram set adopts a documented palette that assigns these colors different meanings."
+      ],
+      "related_decisions": [
+        "CD-0002",
+        "CD-0003"
+      ],
+      "supersedes": [],
+      "superseded_by": null,
+      "originated_on": "2026-08-23",
+      "last_reviewed_on": "2026-08-23"
+    },
+    {
+      "id": "CD-0007",
+      "title": "Cover Encrypt-then-MAC versus MAC-then-Encrypt as the retrofit path when CBC cannot be replaced",
+      "status": "accepted",
+      "implementation_state": "implemented",
+      "scope": {
+        "files": [
+          "docs/index.html"
+        ],
+        "concepts": [
+          "Encrypt-then-MAC",
+          "MAC-then-Encrypt",
+          "composition order",
+          "Lucky Thirteen",
+          "detection guidance",
+          "AEAD"
+        ]
+      },
+      "originating_feedback": "The detection guidance told readers to look for CBC used 'without an associated HMAC tag verification', and the evidence table named MAC-then-Encrypt for Lucky Thirteen, but the page never defined the ordering distinction.",
+      "decision": "Add a subsection under the AEAD fix that contrasts Encrypt-then-MAC, MAC-then-Encrypt, and Encrypt-and-MAC, names EtM as the correct retrofit where CBC must remain, cites RFC 7366, and requires constant-time verification with a single generic error. AEAD stays the primary recommendation.",
+      "rationale": "Following the page's own detection advice by bolting on a MAC in the TLS ordering reconstructs the exact construction Lucky Thirteen attacked. This is decision context needed to apply the page correctly, not optional enrichment.",
+      "authoritative_sources": [
+        {
+          "title": "RFC 7366, Encrypt-then-MAC for Transport Layer Security (TLS) and Datagram Transport Layer Security (DTLS)",
+          "url": "https://datatracker.ietf.org/doc/html/rfc7366",
+          "supports": "Standards-track mechanism for negotiating Encrypt-then-MAC in place of the default MAC-then-Encrypt for TLS CBC ciphersuites."
+        }
+      ],
+      "verification_methods": [
+        "Confirmed RFC 7366 status and scope at the IETF datatracker."
+      ],
+      "approved_outcome": "The 'If CBC must stay: composition order decides whether the fix works' subsection in docs/index.html.",
+      "invalidation_conditions": [
+        "The page's scope narrows to exclude remediation guidance for systems that must keep CBC."
+      ],
+      "related_decisions": [],
+      "supersedes": [],
+      "superseded_by": null,
+      "originated_on": "2026-08-23",
+      "last_reviewed_on": "2026-08-23"
+    },
+    {
+      "id": "CD-0008",
+      "title": "Demo output uses textContent only; innerHTML is not used in the UI layer",
+      "status": "accepted",
+      "implementation_state": "implemented",
+      "scope": {
+        "files": [
+          "docs/js/ui.mjs"
+        ],
+        "concepts": [
+          "XSS",
+          "DOM sink",
+          "innerHTML",
+          "input sanitization",
+          "demo output"
+        ]
+      },
+      "originating_feedback": "Demo inputs flowed through real encryption and back into innerHTML. A payload typed into the CBC-R input executed script in the page origin, confirmed in a browser.",
+      "decision": "Build all demo output with createElement and textContent. innerHTML is not used anywhere in docs/js/ui.mjs, including for verdict banners, which are assembled from text nodes and strong elements.",
+      "rationale": "The exposure is self-XSS only — a static page with no authentication, session, or URL-parameter vector — so the practical risk is low. It is fixed regardless because a page teaching boundary sanitization should not ship an injection sink in its own demonstrations, and the correct pattern costs nothing.",
+      "authoritative_sources": [],
+      "verification_methods": [
+        "Reproduced execution before the change: payload '<img src=q onerror=window.__x4=true>' in the CBC-R input set the flag and injected a live img node.",
+        "Retested after the change: zero injected nodes, no execution, payload rendered as literal characters."
+      ],
+      "approved_outcome": "el/block/setVerdict/renderRecovered helpers in docs/js/ui.mjs, with a file-header comment stating the rule.",
+      "invalidation_conditions": [
+        "A demo genuinely needs to render structured markup, which would require an explicit sanitizer rather than a return to innerHTML."
+      ],
+      "related_decisions": [
+        "CD-0002"
+      ],
+      "supersedes": [],
+      "superseded_by": null,
+      "originated_on": "2026-08-23",
+      "last_reviewed_on": "2026-08-23"
     }
   ]
 }
