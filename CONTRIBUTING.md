@@ -19,6 +19,6 @@ Thanks for your interest in cbc-mode.
 ## Commit and PR conventions
 
 - Write clear, imperative commit subjects ("Add X", "Fix Y"), with a body explaining *why* when it is not obvious.
-- Do not add AI attribution trailers (`Co-Authored-By: Claude` or similar).
+- Do not add AI attribution anywhere: no `Co-Authored-By: Claude` trailer, no `Generated with ...` footer, and no equivalent marker in a commit message, PR title or body, comment, tag, or release note.
 - Keep pull requests small enough to review in one sitting.
 - CI and code scanning must pass before merge; the default branch is protected.
