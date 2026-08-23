@@ -84,7 +84,7 @@
   <div class="demo" id="demo-oracle">
     <div class="demo-head">Live in your browser</div>
     <h3>Live Padding Oracle Decryption</h3>
-    <p class="hint">The oracle holds a random AES key and encrypts the secret below. The decryption function only leaks whether PKCS#7 padding was valid. Recovery averages about 128 oracle calls per byte, so the default secret takes roughly 30&ndash;60 seconds of real AES in your browser; the text fills in as bytes are recovered.</p>
+    <p class="hint">The oracle holds a random AES key and encrypts the secret below. The decryption function only leaks whether PKCS#7 padding was valid. Recovery averages about 128 oracle calls per byte, so the default secret costs on the order of 8,000 real AES decryptions and runs for a noticeable stretch rather than instantly. The exact count is printed when it finishes; the text fills in as bytes are recovered.</p>
     <label for="orc-secret">Secret text to encrypt and recover</label>
     <input type="text" id="orc-secret" value="Confidential Financial Data: $50,000 to Account 9876">
     <div class="row">
@@ -108,7 +108,7 @@
   <div class="demo" id="demo-beast">
     <div class="demo-head">Live in your browser</div>
     <h3>BEAST Predictable IV Session Recovery</h3>
-    <p class="hint">Simulates a TLS 1.0 connection where each request's IV is predictable (chained from the previous record's last block). Each byte costs up to 95 chosen-plaintext requests, so a full session cookie takes tens of seconds. Longer cookies take proportionally longer.</p>
+    <p class="hint">Simulates a TLS 1.0 connection where each request's IV is predictable (chained from the previous record's last block). Each byte costs one capture request plus up to 95 probe requests while the secret is printable ASCII, and up to 256 otherwise — so a full session cookie takes tens of seconds, and longer cookies take proportionally longer.</p>
     <label for="beast-cookie">Secret session cookie held by connection</label>
     <input type="text" id="beast-cookie" value="SESSION=auth_99a8b7c6d5e4">
     <div class="row">
@@ -123,7 +123,7 @@
   <!-- VECTOR 4 -->
   <h2>Vector 4 — Padding oracle ciphertext forgery (CBC-R)</h2>
   <p>Padding oracles do not merely enable decryption — they enable <strong>arbitrary ciphertext forgery</strong>. Vaudenay's 2002 paper established padding-oracle <em>decryption</em>; the forgery technique, named <strong>CBC-R</strong>, was introduced eight years later by <a href="https://www.usenix.org/legacy/event/woot10/tech/full_papers/Rizzo.pdf">Rizzo &amp; Duong at USENIX WOOT 2010</a>, who describe it as their own contribution ("We call it CBC-R encryption"). An attacker with access only to a decryption verification oracle can generate valid ciphertext for any chosen plaintext message without possessing the secret key and without calling an encryption function.</p>
-  <p>The attacker works backwards from the last block <code>Pₙ</code>:
+  <p>The attacker works backwards from the last block <code>Pₙ</code>:</p>
   <ol>
     <li>Pick an arbitrary random block for <code>Cₙ</code>.</li>
     <li>Use the padding oracle to recover the intermediate state <code>Iₙ = D_K(Cₙ)</code>.</li>
@@ -131,7 +131,7 @@
     <li>Use <code>Cₙ₋₁</code> as the new target block and repeat to find <code>Iₙ₋₁ = D_K(Cₙ₋₁)</code> and compute <code>Cₙ₋₂ = Iₙ₋₁ ⊕ Pₙ₋₁</code>.</li>
     <li>Repeat backwards until block 1: compute <code>IV = C₀ = I₁ ⊕ P₁</code>.</li>
   </ol>
-  The synthesized tuple <code>(IV, C₁, C₂, ..., Cₙ)</code> decrypts cleanly to the attacker's chosen plaintext, carrying valid PKCS#7 padding.</p>
+  <p>The synthesized tuple <code>(IV, C₁, C₂, ..., Cₙ)</code> decrypts cleanly to the attacker's chosen plaintext, carrying valid PKCS#7 padding.</p>
 
   <div class="callout warn">
     <span class="callout-title">Prerequisite — the attacker must be able to supply the IV</span>
