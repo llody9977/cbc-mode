@@ -148,11 +148,15 @@ export async function recoverIntermediateBlock(oracle, targetBlock, { onByteReco
     intermediate[bytePos] = intermediateByte;
 
     if (onByteRecovered) {
+      // Pass a snapshot of the partially recovered state. Callers must not close over
+      // the `const` this function's result is assigned to — it is still uninitialized
+      // while this callback runs (temporal dead zone).
       await onByteRecovered({
         bytePos,
         padVal,
         candidate: foundCandidate,
         intermediateByte,
+        intermediate: new Uint8Array(intermediate),
       });
     }
   }
@@ -177,7 +181,7 @@ export async function recoverPlaintextWithOracle(oracle, iv, ciphertext, { onPro
             totalBlocks: blocks.length,
             bytePos: info.bytePos,
             recoveredByte: ptByte,
-            intermediate: new Uint8Array(intermediate),
+            intermediate: info.intermediate,
             queries: oracle.getQueryCount(),
           });
         }
@@ -230,69 +234,66 @@ export class ChainedIvSession {
   }
 }
 
-// BEAST byte-by-byte chosen-plaintext recovery
+// Candidate byte order: printable ASCII first (session cookies are text), then the rest.
+const BEAST_CANDIDATES = [
+  ...Array.from({ length: 95 }, (_, n) => n + 32),
+  ...Array.from({ length: 256 }, (_, n) => n).filter((n) => n < 32 || n > 126),
+];
+
+// BEAST byte-by-byte chosen-plaintext recovery.
+//
+// For secret byte i the request prefix is padded so that secret[i] lands on the LAST byte
+// of a whole block. The other 15 bytes of that block are already known — they are the tail
+// of (filler || bytes recovered so far). Once i >= BLOCK_SIZE that block contains no filler
+// at all, only recovered secret bytes, so the known context must be read from the combined
+// message prefix rather than from the filler.
 export async function recoverSecretViaBeast(session, secretLength, { onStep } = {}) {
   const recovered = [];
 
   for (let i = 0; i < secretLength; i++) {
-    // 1. Send prefix to align the unknown secret byte at the end of block 0
-    // Pad length: 15 for byte 0, 14 for byte 1, etc.
-    const padLen = (BLOCK_SIZE - 1 - (i % BLOCK_SIZE) + BLOCK_SIZE) % BLOCK_SIZE;
+    // 1. Align the unknown byte at a block boundary: 15 filler bytes for byte 0,
+    //    14 for byte 1, ... 0 for byte 15, then the cycle repeats one block further in.
+    const padLen = BLOCK_SIZE - 1 - (i % BLOCK_SIZE);
     const padding = new Uint8Array(padLen).fill("A".charCodeAt(0));
 
-    // Target request: capture target ciphertext block C_target
+    // Target request: capture the ciphertext block ending with the unknown byte.
     const { iv: targetIv, ciphertext: targetCt } = await session.sendRequest(padding);
     const targetBlockIndex = Math.floor((padLen + i) / BLOCK_SIZE);
     const targetBlock = blockAt(targetCt, targetBlockIndex);
     const prevBlockForTarget = targetBlockIndex === 0 ? targetIv : blockAt(targetCt, targetBlockIndex - 1);
 
-    // 2. Test candidate bytes using predictable next IV
+    // The 15 known bytes that precede the unknown one inside that block.
+    const knownPrefix = concat(padding, Uint8Array.from(recovered));
+    const knownHead = knownPrefix.slice(knownPrefix.length - (BLOCK_SIZE - 1));
+
+    // 2. Test candidates against the predictable next IV.
+    //    Target cipher input was: prevBlockForTarget XOR (knownHead ‖ secret[i]).
+    //    The probe is XORed with nextIv on encryption, so choosing
+    //      P_guess = nextIv XOR prevBlockForTarget XOR (knownHead ‖ candidate)
+    //    makes both cipher inputs identical exactly when candidate == secret[i].
     let foundByte = null;
-    for (let c = 32; c <= 126; c++) { // test printable ASCII
+    for (const c of BEAST_CANDIDATES) {
       const nextIv = session.getNextIv();
-
-      // We want the cipher input for block 0 of our guess to match the target cipher input:
-      // Target input was: prevBlockForTarget XOR (known_prefix || candidate)
-      // Guess message will be XORed with nextIv upon encryption:
-      // Guess cipher input = P_guess XOR nextIv.
-      // Setting P_guess = nextIv XOR prevBlockForTarget XOR (known_prefix || candidate)
-      // makes Guess cipher input = prevBlockForTarget XOR (known_prefix || candidate)!
-      const knownContext = concat(
-        padding,
-        Uint8Array.from(recovered.slice(Math.max(0, recovered.length - (BLOCK_SIZE - 1 - padLen)))),
-        Uint8Array.of(c)
+      const guessPlaintextBlock = xorBytes(
+        xorBytes(nextIv, prevBlockForTarget),
+        concat(knownHead, Uint8Array.of(c))
       );
-
-      const guessPlaintextBlock = xorBytes(xorBytes(nextIv, prevBlockForTarget), knownContext);
       const { ciphertext: probeCt } = await session.sendRequest(guessPlaintextBlock);
-      const probeBlock0 = blockAt(probeCt, 0);
 
-      if (bytesEqual(probeBlock0, targetBlock)) {
+      if (bytesEqual(blockAt(probeCt, 0), targetBlock)) {
         foundByte = c;
         break;
       }
     }
 
     if (foundByte === null) {
-      // Fallback full byte search (0..255)
-      for (let c = 0; c < 256; c++) {
-        if (c >= 32 && c <= 126) continue;
-        const nextIv = session.getNextIv();
-        const knownContext = concat(
-          padding,
-          Uint8Array.from(recovered.slice(Math.max(0, recovered.length - (BLOCK_SIZE - 1 - padLen)))),
-          Uint8Array.of(c)
-        );
-        const guessPlaintextBlock = xorBytes(xorBytes(nextIv, prevBlockForTarget), knownContext);
-        const { ciphertext: probeCt } = await session.sendRequest(guessPlaintextBlock);
-        if (bytesEqual(blockAt(probeCt, 0), targetBlock)) {
-          foundByte = c;
-          break;
-        }
-      }
+      // Fail loudly. Returning a silently truncated secret would let a caller report
+      // a successful recovery that never happened.
+      throw new Error(
+        `BEAST recovery failed at byte ${i} of ${secretLength}: no candidate matched the target block`
+      );
     }
 
-    if (foundByte === null) break;
     recovered.push(foundByte);
 
     if (onStep) {

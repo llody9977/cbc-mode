@@ -51,7 +51,7 @@
   <p>While block <code>Pᵢ₋₁</code> is scrambled into pseudorandom bytes (<code>D_K(C'ᵢ₋₁) ⊕ Cᵢ₋₂</code>), target block <code>Pᵢ</code> receives the exact desired modification. In formats with delimiters or separate fields, the corrupted preceding block is often parsed safely or ignored, while the modified block elevates user privileges.</p>
 
   <figure>
-    <img src="diagrams/vector1-bit-flipping.svg" alt="CBC bit-flipping diagram: Modifying bytes in preceding ciphertext block C[1] alters plaintext block P[2] from :role<admin to ;role=admin; upon server decryption.">
+    <img src="diagrams/vector1-bit-flipping.svg" alt="CBC bit-flipping diagram: XORing bytes 0 and 5 of the preceding ciphertext block C[1] with delta 0x01 turns plaintext block P[2] from :role&lt;admin into ;role=admin; on server decryption, while block P[1] is scrambled to garbage. Demonstrated against a local ProfileCookieService; no key knowledge required.">
   </figure>
 
   <div class="demo" id="demo-flip">
@@ -71,16 +71,20 @@
   <!-- VECTOR 2 -->
   <h2>Vector 2 — Padding oracle plaintext recovery (Vaudenay 2002)</h2>
   <p>Block ciphers require messages to be multiples of the block size, typically padded with <a href="https://datatracker.ietf.org/doc/html/rfc5652#section-6.3">PKCS#7</a> (RFC 5652 §6.3), where <code>N</code> padding bytes each equal <code>N</code> (e.g. <code>0x01</code> or <code>0x04 0x04 0x04 0x04</code>). When an unauthenticated CBC endpoint decrypts ciphertext and indicates whether PKCS#7 padding was valid (through an HTTP error, exception type, or response timing), it acts as a <strong>padding oracle</strong> (<a href="https://link.springer.com/chapter/10.1007/3-540-46035-7_35">Serge Vaudenay, EUROCRYPT 2002</a>).</p>
-  <p>To decrypt block <code>Cᵢ</code>, an attacker crafts a probe block <code>C'</code>. By testing values <code>0..255</code> in the last byte of <code>C'</code>, exactly one value causes <code>D_K(Cᵢ) ⊕ C'</code> to end in valid padding <code>0x01</code>. This reveals the intermediate value <code>Iᵢ[15] = C'[15] ⊕ 0x01</code>, from which the original plaintext byte is computed as <code>Pᵢ[15] = Iᵢ[15] ⊕ Cᵢ₋₁[15]</code>. The attacker then sets <code>C'[15] = Iᵢ[15] ⊕ 0x02</code> and tests byte 14 for padding <code>0x02</code>. For a ciphertext of <code>L</code> bytes, complete recovery requires at most <code>256 × L</code> queries (averaging <code>128 × L</code>).</p>
+  <p>To decrypt block <code>Cᵢ</code>, an attacker crafts a probe block <code>C'</code>. Testing values <code>0..255</code> in the last byte of <code>C'</code>, exactly one value makes <code>D_K(Cᵢ) ⊕ C'</code> end in the byte <code>0x01</code>. That reveals the intermediate value <code>Iᵢ[15] = C'[15] ⊕ 0x01</code>, from which the original plaintext byte is computed as <code>Pᵢ[15] = Iᵢ[15] ⊕ Cᵢ₋₁[15]</code>. The attacker then sets <code>C'[15] = Iᵢ[15] ⊕ 0x02</code> and tests byte 14 for padding <code>0x02</code>. For a ciphertext of <code>L</code> bytes, complete recovery requires roughly <code>256 × L</code> queries (averaging about <code>128 × L</code>).</p>
+  <div class="callout warn">
+    <span class="callout-title">The oracle answers a broader question than "is the last byte 0x01?"</span>
+    <p style="margin:0">A padding oracle reports whether the <em>whole block</em> carries valid PKCS#7, so a second candidate can also return true — for example when the recovered block happens to end <code>0x02 0x02</code>. A working attack must disambiguate: perturb the second-to-last byte and re-query, and only a genuine <code>0x01</code> still validates. <a href="https://github.com/llody9977/cbc-mode/blob/main/docs/js/attacks.mjs">This page's implementation</a> does exactly that, which is why its query count can slightly exceed <code>256 × L</code>.</p>
+  </div>
 
   <figure>
-    <img src="diagrams/vector2-padding-oracle.svg" alt="Vaudenay padding oracle decryption diagram: Iteratively testing probe block bytes until valid PKCS#7 padding is signaled, recovering intermediate bytes and full plaintext.">
+    <img src="diagrams/vector2-padding-oracle.svg" alt="Vaudenay padding oracle decryption diagram: probe block bytes are tested until the oracle signals valid PKCS#7. Because the oracle accepts any valid padding, the 0x01 candidate is rechecked against byte 14 to reject false positives such as 0x02 0x02. Recovered intermediate bytes give P[i] = I XOR C[i-1] in roughly 256 times L queries worst case. Demonstrated against a local mock oracle.">
   </figure>
 
   <div class="demo" id="demo-oracle">
     <div class="demo-head">Live in your browser</div>
     <h3>Live Padding Oracle Decryption</h3>
-    <p class="hint">The oracle holds a random AES key and encrypts the secret below. The decryption function only leaks whether PKCS#7 padding was valid.</p>
+    <p class="hint">The oracle holds a random AES key and encrypts the secret below. The decryption function only leaks whether PKCS#7 padding was valid. Recovery averages about 128 oracle calls per byte, so the default secret costs on the order of 8,000 real AES decryptions and runs for a noticeable stretch rather than instantly. The exact count is printed when it finishes; the text fills in as bytes are recovered.</p>
     <label for="orc-secret">Secret text to encrypt and recover</label>
     <input type="text" id="orc-secret" value="Confidential Financial Data: $50,000 to Account 9876">
     <div class="row">
@@ -94,17 +98,17 @@
 
   <!-- VECTOR 3 -->
   <h2>Vector 3 — Predictable IV chosen-plaintext attack (BEAST)</h2>
-  <p>NIST SP 800-38A §6.2 explicitly requires that the Initialization Vector for CBC mode <strong>shall be unpredictable</strong>. In SSL 3.0 and TLS 1.0 (<a href="https://datatracker.ietf.org/doc/html/rfc2246">RFC 2246</a>), implementations chained IVs across records: the IV for record <code>N+1</code> was set to the last ciphertext block of record <code>N</code> (<code>IV_{N+1} = C_{last}</code>).</p>
-  <p>As demonstrated by <a href="https://www.iacr.org/archive/crypto2011/68410525/68410525.pdf">Thai Duong &amp; Juliano Rizzo (2011)</a> in the <strong>BEAST attack</strong> (<a href="https://nvd.nist.gov/vuln/detail/CVE-2011-3389">CVE-2011-3389</a>), a chosen-plaintext adversary (such as JavaScript running in a browser) who knows the predicted <code>IV_{next}</code> can evaluate guesses against previously captured target ciphertext block <code>C_{target}</code>. By submitting crafted plaintext <code>P_{guess} = IV_{next} ⊕ IV_{target} ⊕ (Pad ∥ Candidate)</code>, the cipher encrypts <code>E_K(P_{guess} ⊕ IV_{next}) = E_K(IV_{target} ⊕ (Pad ∥ Candidate))</code>. When the candidate is correct, the resulting ciphertext matches <code>C_{target}</code>, breaking IND-CPA security and extracting secret session cookies.</p>
+  <p>NIST SP 800-38A §6.2 states that for CBC mode the IV "need not be secret, but it <strong>must be unpredictable</strong>"; §5.3 and Appendix C repeat the requirement. (The document states its requirements with "must" rather than the RFC 2119 keyword "shall".) In SSL 3.0 and TLS 1.0 (<a href="https://datatracker.ietf.org/doc/html/rfc2246">RFC 2246</a>), implementations chained IVs across records: the IV for record <code>N+1</code> was set to the last ciphertext block of record <code>N</code> (<code>IV_{N+1} = C_{last}</code>).</p>
+  <p>As demonstrated by <a href="https://web.archive.org/web/2013/http://netifera.com/research/beast/beast_DRAFT_0621.pdf">Thai Duong &amp; Juliano Rizzo (2011)</a> in the <strong>BEAST attack</strong> (<a href="https://nvd.nist.gov/vuln/detail/CVE-2011-3389">CVE-2011-3389</a>), a chosen-plaintext adversary (such as JavaScript running in a browser) who knows the predicted <code>IV_{next}</code> can evaluate guesses against a previously captured target ciphertext block <code>C_{target}</code>. Write <code>B_{target}</code> for the block that entered the cipher immediately before <code>C_{target}</code> — the preceding ciphertext block, or the record's own IV when the target sits first in the record. By submitting crafted plaintext <code>P_{guess} = IV_{next} ⊕ B_{target} ⊕ (Known ∥ Candidate)</code>, the cipher encrypts <code>E_K(P_{guess} ⊕ IV_{next}) = E_K(B_{target} ⊕ (Known ∥ Candidate))</code>. The attacker chooses the request length so the unknown byte lands last in its block, making <code>Known</code> the 15 bytes already recovered. When the candidate is correct, the resulting ciphertext matches <code>C_{target}</code>, breaking IND-CPA security and extracting secret session cookies one byte at a time.</p>
 
   <figure>
-    <img src="diagrams/vector3-predictable-iv.svg" alt="BEAST attack diagram: Aligning chosen plaintext guesses with predicted chained IV to match target ciphertext blocks.">
+    <img src="diagrams/vector3-predictable-iv.svg" alt="BEAST attack diagram: the attacker captures a target ciphertext block, then uses the predictable chained IV to submit P_guess = IV_next XOR B_target XOR (Known || Candidate). When the probe ciphertext matches the target block the candidate is the secret byte. Educational simulation of CVE-2011-3389 against a local ChainedIvSession.">
   </figure>
 
   <div class="demo" id="demo-beast">
     <div class="demo-head">Live in your browser</div>
     <h3>BEAST Predictable IV Session Recovery</h3>
-    <p class="hint">Simulates a TLS 1.0 connection where each request's IV is predictable (chained from the previous record's last block).</p>
+    <p class="hint">Simulates a TLS 1.0 connection where each request's IV is predictable (chained from the previous record's last block). Each byte costs one capture request plus up to 95 probe requests while the secret is printable ASCII, and up to 256 otherwise — so a full session cookie takes tens of seconds, and longer cookies take proportionally longer.</p>
     <label for="beast-cookie">Secret session cookie held by connection</label>
     <input type="text" id="beast-cookie" value="SESSION=auth_99a8b7c6d5e4">
     <div class="row">
@@ -118,8 +122,8 @@
 
   <!-- VECTOR 4 -->
   <h2>Vector 4 — Padding oracle ciphertext forgery (CBC-R)</h2>
-  <p>Padding oracles do not merely enable decryption — they enable <strong>arbitrary ciphertext forgery</strong> (<a href="https://www.usenix.org/legacy/event/woot10/tech/full_papers/Rizzo.pdf">Rizzo &amp; Duong, USENIX WOOT 2010</a>; Vaudenay 2002 CBC-R). An attacker with access only to a decryption verification oracle can generate valid ciphertext for any chosen plaintext message without possessing the secret key and without calling an encryption function.</p>
-  <p>The attacker works backwards from the last block <code>Pₙ</code>:
+  <p>Padding oracles do not merely enable decryption — they enable <strong>arbitrary ciphertext forgery</strong>. Vaudenay's 2002 paper established padding-oracle <em>decryption</em>; the forgery technique, named <strong>CBC-R</strong>, was introduced eight years later by <a href="https://www.usenix.org/legacy/event/woot10/tech/full_papers/Rizzo.pdf">Rizzo &amp; Duong at USENIX WOOT 2010</a>, who describe it as their own contribution ("We call it CBC-R encryption"). An attacker with access only to a decryption verification oracle can generate valid ciphertext for any chosen plaintext message without possessing the secret key and without calling an encryption function.</p>
+  <p>The attacker works backwards from the last block <code>Pₙ</code>:</p>
   <ol>
     <li>Pick an arbitrary random block for <code>Cₙ</code>.</li>
     <li>Use the padding oracle to recover the intermediate state <code>Iₙ = D_K(Cₙ)</code>.</li>
@@ -127,10 +131,15 @@
     <li>Use <code>Cₙ₋₁</code> as the new target block and repeat to find <code>Iₙ₋₁ = D_K(Cₙ₋₁)</code> and compute <code>Cₙ₋₂ = Iₙ₋₁ ⊕ Pₙ₋₁</code>.</li>
     <li>Repeat backwards until block 1: compute <code>IV = C₀ = I₁ ⊕ P₁</code>.</li>
   </ol>
-  The synthesized tuple <code>(IV, C₁, C₂, ..., Cₙ)</code> decrypts cleanly to the attacker's chosen plaintext with 100% valid PKCS#7 padding.</p>
+  <p>The synthesized tuple <code>(IV, C₁, C₂, ..., Cₙ)</code> decrypts cleanly to the attacker's chosen plaintext, carrying valid PKCS#7 padding.</p>
+
+  <div class="callout warn">
+    <span class="callout-title">Prerequisite — the attacker must be able to supply the IV</span>
+    <p style="margin:0">Step 5 <em>computes</em> an IV rather than accepting one. CBC-R therefore lands every block as chosen only where the endpoint reads the IV from attacker-supplied data — typically a ciphertext prefix. Where the IV is fixed, secret, or server-side, the technique still works from block 2 onward but the first plaintext block decrypts to garbage, and a receiver that validates a header or magic number will reject the message. Rizzo &amp; Duong state this plainly: "if attackers don't control the IV, then the first block is garbled … This limitation could prevent some of the highest impact attacks, and we have not found generic way to overcome it." Their partial workarounds — prefixing captured ciphertext so the garbled block falls inside an ignored field, or brute-forcing <code>C₀</code> for short headers — are situational, not general. The demonstration below supplies its own IV, so it shows the favorable case.</p>
+  </div>
 
   <figure>
-    <img src="diagrams/vector4-cbc-r-forgery.svg" alt="CBC-R forgery diagram: Working backwards from the last block, using the padding oracle to compute intermediate states and synthesize valid ciphertext.">
+    <img src="diagrams/vector4-cbc-r-forgery.svg" alt="CBC-R forgery diagram: starting from a random last ciphertext block and working backwards, the padding oracle yields each intermediate state I[i] = D_K(C[i]) and C[i-1] = I[i] XOR P[i], down to a computed IV. The result decrypts to the chosen plaintext with valid PKCS#7, but only where the endpoint accepts an attacker-supplied IV; otherwise the first block decrypts to garbage. Demonstrated against a local padding oracle.">
   </figure>
 
   <div class="demo" id="demo-forgery">
@@ -168,6 +177,15 @@
   <p>The standard cryptographic solution is to replace unauthenticated CBC with <strong>Authenticated Encryption with Associated Data (AEAD)</strong>: <strong>AES-GCM</strong> (<a href="https://csrc.nist.gov/pubs/sp/800/38/d/final">NIST SP 800-38D</a>) or <strong>ChaCha20-Poly1305</strong> (<a href="https://datatracker.ietf.org/doc/html/rfc8439">RFC 8439</a>). In TLS 1.3 (<a href="https://datatracker.ietf.org/doc/html/rfc8446">RFC 8446</a>), CBC mode was completely removed from the specification in favor of AEAD.</p>
   <p>AEAD computes an authentication tag over the ciphertext and associated metadata. If any ciphertext bit or IV is altered, decryption immediately aborts with an authentication failure before any plaintext is released, neutralizing bit-flipping, padding oracles, and forgery attacks.</p>
 
+  <h3>If CBC must stay: composition order decides whether the fix works</h3>
+  <p>Where a hardware, protocol, or certification constraint forces CBC to remain, adding "an HMAC" is not by itself sufficient — <em>where</em> the MAC sits determines whether the padding oracle survives:</p>
+  <ul>
+    <li><strong>Encrypt-then-MAC (EtM) — the correct retrofit.</strong> Encrypt, then compute the MAC over the IV and ciphertext. The receiver verifies the tag <em>before</em> decrypting, so malformed ciphertext never reaches the unpadding code and there is no padding status to leak.</li>
+    <li><strong>MAC-then-Encrypt (MtE) — the construction that failed.</strong> MAC the plaintext, then encrypt plaintext and tag together. The receiver must decrypt and unpad before it can check the tag, which is exactly the window Lucky Thirteen measured; this is the ordering TLS used through 1.2. <a href="https://datatracker.ietf.org/doc/html/rfc7366">RFC 7366</a> exists specifically to negotiate EtM for TLS CBC ciphersuites.</li>
+    <li><strong>Encrypt-and-MAC (E&amp;M).</strong> Transmits a MAC of the plaintext alongside the ciphertext, leaking equality of plaintexts and still unpadding before verification.</li>
+  </ul>
+  <p>Verify the tag in constant time and reject with a single generic error, so that error type, message, and response latency are identical for a bad tag and a bad structure. EtM over CBC is a mitigation for constrained cases; where the choice is free, AEAD remains the recommendation.</p>
+
   <div class="demo" id="demo-gcm">
     <div class="demo-head">Live in your browser</div>
     <h3>AES-GCM Defense in Action</h3>
@@ -191,7 +209,7 @@
         </tr>
         <tr>
           <td><strong>BEAST (2011)</strong><br><a href="https://nvd.nist.gov/vuln/detail/CVE-2011-3389">CVE-2011-3389</a></td>
-          <td>Browser Exploit Against SSL/TLS exploited chained/predictable IVs in TLS 1.0 CBC mode to recover authentication cookies using chosen-plaintext alignment (<a href="https://www.iacr.org/archive/crypto2011/68410525/68410525.pdf">Duong &amp; Rizzo</a>).</td>
+          <td>Browser Exploit Against SSL/TLS exploited chained/predictable IVs in TLS 1.0 CBC mode to recover authentication cookies using chosen-plaintext alignment (<a href="https://web.archive.org/web/2013/http://netifera.com/research/beast/beast_DRAFT_0621.pdf">Duong &amp; Rizzo</a>).</td>
           <td>Vector 3</td>
         </tr>
         <tr>
@@ -220,11 +238,12 @@
 
   <h2>Residual risk after switching to AES-GCM</h2>
   <p>While AES-GCM resolves CBC's malleability and padding oracle vulnerabilities, it introduces a critical operational requirement: <strong>nonce uniqueness</strong>. Reusing a <code>(key, nonce)</code> pair in AES-GCM breaks confidentiality and compromises the GHASH authentication key, allowing arbitrary tag forgery (<a href="https://eprint.iacr.org/2016/475">Böck et al., USENIX WOOT 2016</a>).</p>
-  <p><a href="https://csrc.nist.gov/pubs/sp/800/38/d/final">NIST SP 800-38D</a> §8 defines two approved IV constructions:</p>
+  <p><a href="https://csrc.nist.gov/pubs/sp/800/38/d/final">NIST SP 800-38D</a> §8 sets the governing requirement — the probability of ever reusing an <code>(IV, key)</code> pair "shall be no greater than 2<sup>−32</sup>" — and §8.2 defines two constructions that meet it:</p>
   <ul>
-    <li><strong>Deterministic IV (§8.2.1):</strong> A fixed device/context identifier concatenated with an invocation counter. With 96-bit IVs, this construction has no invocation limit before rekeying.</li>
-    <li><strong>RBG-based Random IV (§8.2.2):</strong> A 96-bit random nonce generated from a cryptographically secure RNG. To maintain collision probability below 2<sup>−32</sup>, NIST SP 800-38D §8.3 mandates a strict limit of at most <strong>2<sup>32</sup> encryptions per key</strong>.</li>
+    <li><strong>Deterministic IV (§8.2.1):</strong> a fixed device/context field concatenated with an invocation counter. 96-bit deterministic IVs are exempt from the global cap below, but <strong>not from any cap</strong>: §8.3 states that the constraint applies "to any supported IV length, including 96 bits", and that with an <code>s</code>-bit invocation field the function "cannot be invoked on more than 2<sup>s</sup> distinct input sets". Under NIST's suggested 96-bit layout (32-bit fixed field, 64-bit invocation field) that ceiling is 2<sup>64</sup>.</li>
+    <li><strong>RBG-based Random IV (§8.2.2):</strong> a random field of <em>at least</em> 96 bits from an approved RBG, optionally followed by a free field. Here §8.3 does impose the global cap: the total number of invocations of the authenticated encryption function "shall not exceed 2<sup>32</sup> … with the given key", counting every IV length and every instance.</li>
   </ul>
+  <p>Both ceilings are uniqueness budgets, not performance advice. Whichever construction is chosen, rekey before the budget is spent — an exhausted counter or a repeated random field is a <code>(key, nonce)</code> collision, which is the failure mode described above.</p>
   <p>Where nonce management is difficult or state cannot be guaranteed across distributed nodes, engineers should select a misuse-resistant authenticated mode such as <strong>AES-GCM-SIV</strong> (<a href="https://datatracker.ietf.org/doc/html/rfc8452">RFC 8452</a>) or <strong>Deoxys-II</strong>.</p>
 
   <div class="callout">
@@ -234,18 +253,18 @@
 
   <h2>Primary references</h2>
   <ul>
-    <li><a href="https://csrc.nist.gov/pubs/sp/800/38/a/final">NIST SP 800-38A</a> §6.2 — Recommendation for Block Cipher Modes of Operation: Methods and Techniques (CBC mode definition and unpredictable IV requirement).</li>
-    <li><a href="https://csrc.nist.gov/pubs/sp/800/38/d/final">NIST SP 800-38D</a> §8 — Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) IV uniqueness and 2<sup>32</sup> invocation limits.</li>
+    <li><a href="https://csrc.nist.gov/pubs/sp/800/38/a/final">NIST SP 800-38A</a> §6.2 — Recommendation for Block Cipher Modes of Operation: Methods and Techniques (CBC mode definition; the IV "must be unpredictable", also stated in §5.3 and Appendix C).</li>
+    <li><a href="https://csrc.nist.gov/pubs/sp/800/38/d/final">NIST SP 800-38D</a> §8 — Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM). §8 sets the 2<sup>&minus;32</sup> IV-reuse bound; §8.2 defines the two IV constructions and §8.3 their invocation ceilings.</li>
     <li><a href="https://datatracker.ietf.org/doc/html/rfc8446">RFC 8446</a> — The Transport Layer Security (TLS) Protocol Version 1.3 (removal of CBC mode in favor of mandatory AEAD).</li>
     <li><a href="https://link.springer.com/chapter/10.1007/3-540-46035-7_35">Serge Vaudenay, EUROCRYPT 2002</a> — Security Flaws Induced by CBC Padding — Applications to SSL, IPSEC, WTLS.</li>
-    <li><a href="https://www.usenix.org/legacy/event/woot10/tech/full_papers/Rizzo.pdf">Juliano Rizzo &amp; Thai Duong, USENIX WOOT 2010</a> — Practical Padding Oracle Attacks (CBC-R).</li>
-    <li><a href="https://www.iacr.org/archive/crypto2011/68410525/68410525.pdf">Thai Duong &amp; Juliano Rizzo, CRYPTO 2011</a> — Here Come the &times;OR Ninjas (The BEAST Attack).</li>
+    <li><a href="https://www.usenix.org/legacy/event/woot10/tech/full_papers/Rizzo.pdf">Juliano Rizzo &amp; Thai Duong, USENIX WOOT 2010</a> — Practical Padding Oracle Attacks. Origin of the CBC-R forgery technique, and source of the IV-control limitation stated in Vector 4.</li>
+    <li><a href="https://web.archive.org/web/2013/http://netifera.com/research/beast/beast_DRAFT_0621.pdf">Thai Duong &amp; Juliano Rizzo (2011)</a> — Here Come The &oplus; Ninjas (The BEAST Attack). Netifera white paper, 13 May 2011, presented at ekoparty 2011; not a refereed proceedings paper. Archived copy — the original netifera.com host is offline.</li>
   </ul>
 </main>
 
 <footer>
   <p><strong>Disclaimer.</strong> Provided as-is, without warranty, for educational and defensive security research. All demonstrations execute locally in your browser against self-contained in-memory mock oracles — no network or external infrastructure involved. Use only against systems you own or are authorized to test.</p>
-  <p>Cryptographic primitives and attack logic are verified against NIST SP 800-38A test vectors in the <a href="https://github.com/llody9977/cbc-mode/tree/main/test">automated test suite</a>. Licensed under Apache-2.0. <a href="https://github.com/llody9977/cbc-mode">Repository →</a></p>
+  <p>The AES-CBC primitive is verified against the official NIST SP 800-38A §F.2.1 test vectors, and each attack vector is separately exercised end-to-end against real Web Crypto AES, in the <a href="https://github.com/llody9977/cbc-mode/tree/main/test">automated test suite</a>. The NIST vectors validate the cipher, not the attacks. Licensed under Apache-2.0. <a href="https://github.com/llody9977/cbc-mode">Repository →</a></p>
 </footer>
 
 <script type="module" src="js/ui.mjs"></script>
