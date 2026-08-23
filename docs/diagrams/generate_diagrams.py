@@ -5,6 +5,11 @@ ink, and muted text) with a prefers-color-scheme: dark override. Semantic colors
 (navy, danger red, safe green, purple, amber, blue) remain fixed so they read clearly
 on both light and dark backgrounds.
 
+Color convention, applied consistently across every diagram: RED marks an attacker-
+controlled input or a successful attack outcome, GREEN marks a defense holding, PURPLE
+marks an oracle interaction, AMBER marks a leaked or predictable value, NAVY marks a
+neutral cipher operation. Green never labels a successful attack.
+
 Run: `python3 docs/diagrams/generate_diagrams.py`
 """
 import pathlib
@@ -165,7 +170,8 @@ def d2():
     b.append(arrow(r1[0] + r1[2] / 2, r1[1] + r1[3], vs[0][0] + vs[0][1] / 2, vy - 2))
     b.append(arrow(r2[0] + r2[2] / 2, r2[1] + r2[3], vs[1][0] + vs[1][1] / 2, vy - 2))
     b.append(arrow(r3[0] + r3[2] / 2, r3[1] + r3[3], vs[2][0] + vs[2][1] / 2, vy - 2))
-    # Vector 4 connects to both Root Cause 1 and 2
+    # Only the root-cause-2 edge is drawn: the padding oracle is what supplies D_K.
+    # Vector 4 also rests on root cause 1, which the Vector 4 prose states.
     b.append(arrow(r2[0] + r2[2] / 2, r2[1] + r2[3], vs[3][0] + vs[3][1] / 2, vy - 2))
 
     b.append(text(W / 2, 362, "Scope: educational analysis of CBC mode vulnerabilities; all attacks demonstrated against self-contained local oracles.",
@@ -175,7 +181,7 @@ def d2():
 
 # ---------------- Diagram 3: Vector 1 Bit-Flipping ----------------
 def d3():
-    b = [box(40, 62, W - 80, 40, "Target profile: comment1=preview;userdata_input= :role<admin ;comment2=user",
+    b = [box(40, 62, W - 80, 40, "Target profile: comment1=preview;userdata_input=[:role<admin];comment2=standard_user;role=user",
              fill=NAVY, stroke="#0d1b2a", tc="#fff", size=13)]
 
     b.append(panel(40, 120, W - 80, 260))
@@ -187,7 +193,7 @@ def d3():
     b.append(box(60, 195, 360, 36, "C[1] (bytes 16..31)", fill=NEU_F, stroke=NEU_S, tc=INK, size=12))
     b.append(box(440, 195, 360, 36, "C[2] (bytes 32..47)", fill=NEU_F, stroke=NEU_S, tc=INK, size=12))
 
-    b.append(text(60, 260, "2. Attacker modifies C[1] byte 0 (XOR ':') and byte 5 (XOR '<'):", size=13, fill=RED, weight="700", anchor="start"))
+    b.append(text(60, 260, "2. Attacker XORs C[1] bytes 0 and 5 with Δ = 0x01 (':'⊕';' and '<'⊕'='):", size=13, fill=RED, weight="700", anchor="start"))
     b.append(box(60, 280, 360, 36, "C'[1] = C[1] ⊕ Δ (tampered)", fill="#fee2e2", stroke=RED, tc="#991b1b", size=12))
     b.append(box(440, 280, 360, 36, "C[2] (unchanged)", fill=NEU_F, stroke=NEU_S, tc=INK, size=12))
 
@@ -195,7 +201,7 @@ def d3():
     b.append(arrow(620, 316, 620, 345))
 
     b.append(box(60, 345, 360, 36, "P'[1] = Scrambled garbage", fill="#f1f5f9", stroke=GRAY, tc=MUTED, size=12))
-    b.append(box(440, 345, 360, 36, "P'[2] = ';role=admin;' (FORGED ROLE!)", fill="#dcfce7", stroke=GREEN, tc="#166534", size=12, weight="700"))
+    b.append(box(440, 345, 360, 36, "P'[2] starts ';role=admin;' — FORGED ROLE", fill="#fee2e2", stroke=RED, tc="#991b1b", size=12, weight="700"))
 
     b.append(text(W / 2, 405, "Scope: demonstrated on local ProfileCookieService; no knowledge of secret key required.",
                   size=10.5, fill=MUTED))
@@ -211,12 +217,12 @@ def d4():
 
     b.append(box(60, 160, 360, 40, "Craft probe block C' with candidate byte at position 15\nTarget padding: 0x01", fill=NEU_F, stroke=NEU_S, tc=INK, size=11.5))
     b.append(arrow(420, 180, 470, 180))
-    b.append(box(470, 160, 370, 40, "Oracle returns True when D_K(C[i])[15] ⊕ C'[15] == 0x01\nReveals intermediate byte I[15] = C'[15] ⊕ 0x01", fill="#ede9fe", stroke=PURPLE, tc="#5b21b6", size=11.5))
+    b.append(box(470, 160, 370, 56, "Oracle returns True for ANY valid PKCS#7 ending\nOne candidate gives 0x01 → I[15] = C'[15] ⊕ 0x01\n(recheck byte 14 to reject 0x02 0x02 …)", fill="#ede9fe", stroke=PURPLE, tc="#5b21b6", size=11.5))
 
-    b.append(arrow(655, 200, 655, 230))
-    b.append(box(470, 230, 370, 40, "Set C'[15] = I[15] ⊕ 0x02, test C'[14] for padding 0x02\nReveals intermediate byte I[14] = C'[14] ⊕ 0x02", fill="#ede9fe", stroke=PURPLE, tc="#5b21b6", size=11.5))
-    b.append(arrow(470, 250, 420, 250))
-    b.append(box(60, 230, 360, 40, "Compute Plaintext: P[i] = I ⊕ C[i-1]\nTotal queries: ≤ 256 × L (avg 128 × L)", fill="#dcfce7", stroke=GREEN, tc="#166534", size=12, weight="700"))
+    b.append(arrow(655, 216, 655, 238))
+    b.append(box(470, 238, 370, 40, "Set C'[15] = I[15] ⊕ 0x02, test C'[14] for padding 0x02\nReveals intermediate byte I[14] = C'[14] ⊕ 0x02", fill="#ede9fe", stroke=PURPLE, tc="#5b21b6", size=11.5))
+    b.append(arrow(470, 258, 420, 258))
+    b.append(box(60, 238, 360, 40, "Compute Plaintext: P[i] = I ⊕ C[i-1]\nQueries: ≈ 256 × L worst case (avg ≈ 128 × L)", fill="#fee2e2", stroke=RED, tc="#991b1b", size=12, weight="700"))
 
     b.append(text(W / 2, 360, "Scope: demonstrated against local mock oracle (makePaddingOracle); key never exposed.",
                   size=10.5, fill=MUTED))
@@ -237,7 +243,7 @@ def d5():
     b.append(arrow(655, 204, 655, 230))
 
     b.append(box(60, 230, 780, 50, "3. Probe Request (Record N+1): Attacker submits P_guess = IV_next ⊕ IV_target ⊕ (Pad ‖ Candidate)\nCipher computes: E_K(P_guess ⊕ IV_next) = E_K(IV_target ⊕ (Pad ‖ Candidate))\nWhen C_probe == C_target → Candidate is the exact secret byte!",
-                 fill="#dcfce7", stroke=GREEN, tc="#166534", size=12, weight="600"))
+                 fill="#fee2e2", stroke=RED, tc="#991b1b", size=12, weight="600"))
 
     b.append(text(W / 2, 368, "Scope: educational simulation of CVE-2011-3389 against local ChainedIvSession.",
                   size=10.5, fill=MUTED))
@@ -245,7 +251,7 @@ def d5():
 
 # ---------------- Diagram 6: Vector 4 CBC-R Forgery ----------------
 def d6():
-    b = [box(40, 62, W - 80, 40, "CBC-R Forgery: Creating valid ciphertext for ANY chosen plaintext with ONLY a padding oracle",
+    b = [box(40, 62, W - 80, 40, "CBC-R Forgery: valid ciphertext for a chosen plaintext, from a padding oracle alone (no key)",
              fill=NAVY, stroke="#0d1b2a", tc="#fff", size=13)]
 
     b.append(panel(40, 116, W - 80, 230))
@@ -258,8 +264,8 @@ def d6():
     b.append(box(620, 160, 220, 44, "3. Compute C[n-1]\nC[n-1] = I[n] ⊕ P[n]", fill="#fef3c7", stroke=AMBER, tc="#92400e", size=11.5))
 
     b.append(arrow(730, 204, 730, 230))
-    b.append(box(60, 230, 780, 44, "4. Repeat backwards for C[n-2]... down to IV = I[1] ⊕ P[1]\nResult: (IV, C[1], ..., C[n]) decrypts to chosen plaintext with 100% valid padding!",
-                 fill="#dcfce7", stroke=GREEN, tc="#166534", size=12, weight="700"))
+    b.append(box(60, 230, 780, 62, "4. Repeat backwards for C[n-2]... down to IV = I[1] ⊕ P[1]\nResult: (IV, C[1], ..., C[n]) decrypts to the chosen plaintext, valid PKCS#7\nREQUIRES the endpoint to accept an attacker-supplied IV, else block 1 is garbage",
+                 fill="#fee2e2", stroke=RED, tc="#991b1b", size=12, weight="700"))
 
     b.append(text(W / 2, 368, "Scope: demonstrated using local makePaddingOracle and forgeCiphertextWithOracle.",
                   size=10.5, fill=MUTED))
@@ -276,7 +282,9 @@ def main():
     }
     for filename, content in diagrams.items():
         path = OUT / filename
-        path.write_text(content, encoding="utf-8")
+        # Trailing newline keeps regeneration idempotent under the repo's
+        # pre-commit end-of-file-fixer hook.
+        path.write_text(content + "\n", encoding="utf-8")
         print(f"Generated: {path}")
 
 if __name__ == "__main__":

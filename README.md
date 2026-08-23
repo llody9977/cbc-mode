@@ -14,9 +14,9 @@ Cipher Block Chaining (CBC) was designed to eliminate the block-repetition leaks
 The site turns each weakness into an interactive demonstration you can drive. The cryptography is **real AES** executed via the standard Web Crypto API locally in your browser — zero server calls.
 
 - **Bit-flipping malleability** — modify ciphertext bytes to inject chosen changes into decrypted plaintext (e.g. forging an admin role) without triggering decryption errors.
-- **Padding oracle decryption** — recover complete plaintext byte-by-byte in at most 256 queries per byte via a 1-bit padding validation leak (the Vaudenay 2002 / POODLE mechanism).
+- **Padding oracle decryption** — recover complete plaintext byte-by-byte in roughly 256 queries per byte via a padding validation leak (the Vaudenay 2002 / POODLE mechanism).
 - **Predictable IV attack** — exploit chained or predictable IVs in TLS 1.0 connections to recover secret session cookies via chosen plaintext (the BEAST attack / CVE-2011-3389).
-- **Ciphertext forgery (CBC-R)** — synthesize valid ciphertext for arbitrary chosen plaintext using only a decryption padding oracle — zero key access and zero encryption calls.
+- **Ciphertext forgery (CBC-R)** — synthesize valid ciphertext for arbitrary chosen plaintext using only a decryption padding oracle — zero key access and zero encryption calls. Requires the endpoint to accept an attacker-supplied IV; otherwise the first block decrypts to garbage (Rizzo & Duong, WOOT 2010).
 - **The fix** — the same token under AES-GCM: flip one bit and watch the authentication tag immediately reject the tampered ciphertext before any plaintext is released.
 
 ![CBC's three root causes and four attack vectors](docs/diagrams/taxonomy.svg)
@@ -25,7 +25,7 @@ The site turns each weakness into an interactive demonstration you can drive. Th
 
 - [`docs/`](docs/) — the GitHub Pages site and technical write-up: [`index.html`](docs/index.html), [`styles.css`](docs/styles.css), and theme-aware SVG [`diagrams/`](docs/diagrams/).
 - [`docs/js/`](docs/js/) — the demo logic: [`crypto.mjs`](docs/js/crypto.mjs) (AES-CBC/GCM, PKCS#7) and [`attacks.mjs`](docs/js/attacks.mjs) (the four vectors), plus [`ui.mjs`](docs/js/ui.mjs) which wires them to the page.
-- [`test/`](test/) — a Node test suite that exercises the modules against real AES, including official NIST SP 800-38A Section F.2.1 AES-128-CBC test vectors.
+- [`test/`](test/) — a Node test suite that exercises the modules against real AES. The AES-CBC primitive is checked against the official NIST SP 800-38A §F.2.1 vectors; each attack vector is separately exercised end-to-end, including the progress-callback path the browser UI uses and secrets longer than one block.
 - [`reviews/`](reviews/) — the review audit trail and durable content decisions register.
 
 ## Develop
