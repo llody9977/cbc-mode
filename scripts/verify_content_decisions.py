@@ -55,10 +55,37 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_registry(path: Path) -> dict[str, object]:
+    """Parse the register.
+
+    The register is JSON-compatible YAML. PyYAML is preferred when it is installed,
+    so a register carrying YAML comments or unquoted keys still parses; the stdlib
+    json parser is the dependency-free fallback and is sufficient for a register
+    kept in the seeded JSON-compatible style. Read errors and parse errors are
+    reported separately — a missing file and a malformed one need different fixes.
+    """
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise ValueError(f"cannot parse {path.relative_to(repository_root())}: {error}") from error
+        text = path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise ValueError(f"cannot read {path.relative_to(repository_root())}: {error}") from error
+
+    try:
+        import yaml
+    except ImportError:
+        yaml = None
+
+    if yaml is not None:
+        try:
+            return yaml.safe_load(text)
+        except yaml.YAMLError as error:
+            raise ValueError(f"cannot parse {path.relative_to(repository_root())}: {error}") from error
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as error:
+        raise ValueError(
+            f"cannot parse {path.relative_to(repository_root())}: {error} "
+            "(PyYAML is not installed, so the register must stay JSON-compatible)"
+        ) from error
 
 
 def validate(registry: dict[str, object], root: Path) -> list[str]:

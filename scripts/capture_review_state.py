@@ -104,7 +104,15 @@ def capture(root: Path, files: list[Path], requested: list[str]) -> dict[str, ob
         aggregate.update(b"\0")
 
     status = git(root, "status", "--porcelain=v1", "--untracked-files=all")
-    head = git(root, "rev-parse", "HEAD")
+    # A repository with no commits yet has no HEAD to resolve. Record the baseline
+    # as INITIAL rather than aborting the whole capture — a first review of an
+    # uncommitted project is a legitimate frozen state.
+    has_head = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD"], cwd=root, capture_output=True
+    ).returncode == 0
+    head = git(root, "rev-parse", "HEAD") if has_head else "INITIAL"
+    # An empty `--show-current` means detached HEAD, not the default branch. Naming
+    # it "main" would put a false branch into the frozen baseline record.
     branch = git(root, "branch", "--show-current") or "DETACHED"
     scoped_fingerprint = aggregate.hexdigest()
     state_material = "\n".join((head, branch, status, scoped_fingerprint))

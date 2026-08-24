@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Why AES-CBC mode is unsafe — interactive</title>
-<meta name="description" content="Why AES-CBC is unsafe: ciphertext malleability, padding oracles, predictable IVs, and interactive in-browser demonstrations running real AES.">
+<title>Why unauthenticated AES-CBC is unsafe — interactive</title>
+<meta name="description" content="AES-CBC provides confidentiality but not integrity. Left unauthenticated — or used with a predictable IV — it is exploitable via malleability, padding oracles, and chosen-plaintext attacks. Interactive in-browser demonstrations running real AES.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔓</text></svg>">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="hero">
   <div class="eyebrow">Cryptography / Failure analysis</div>
-  <h1>AES-CBC mode is unsafe</h1>
-  <p class="lede">Cipher Block Chaining (CBC) was designed to eliminate the block-repetition leaks of ECB by XORing each plaintext block with the preceding ciphertext block before encryption. However, CBC mode provides <strong>confidentiality without integrity</strong>. That lack of authentication makes ciphertext malleable: flipping bits in one block alters the next block deterministically, unauthenticated decryption leaks padding validation side channels (padding oracles), predictable IVs break IND-CPA security, and oracle access enables arbitrary message forgery without knowing the key.</p>
+  <h1>Unauthenticated AES-CBC is unsafe</h1>
+  <p class="lede">Cipher Block Chaining (CBC) was designed to eliminate the block-repetition leaks of ECB by XORing each plaintext block with the preceding ciphertext block before encryption. It delivers <strong>confidentiality</strong> — but <strong>not integrity</strong>. CBC is not authenticated encryption: on its own it does nothing to detect a modified ciphertext, and it depends on every IV being unpredictable. Used <strong>unauthenticated</strong> — the common case — or with a predictable IV, CBC is exploitable without the key: flipping ciphertext bits injects chosen changes into the plaintext, an endpoint that leaks padding validity becomes a decryption oracle, a predictable IV breaks IND-CPA security, and that same oracle forges ciphertext outright. The mode itself is not broken — CBC with Encrypt-then-MAC and unpredictable IVs is a sound construction — but it is unsafe by default and easy to misuse, which is why modern designs reach for AEAD instead.</p>
   <p class="muted">Every claim below is paired with a demonstration you can run live in your browser. All cryptography uses <strong>real AES</strong> via the Web Crypto API, executed entirely in your local browser runtime — zero server calls. <a href="https://github.com/llody9977/cbc-mode">Source &amp; tests on GitHub →</a></p>
 </header>
 
@@ -34,11 +34,11 @@
   </figure>
 
   <h2>Three root causes, four attack vectors</h2>
-  <p>The operational failures of CBC mode stem from three distinct root causes, creating four primary attack vectors:</p>
+  <p>Unauthenticated CBC's operational failures stem from three distinct root causes — two follow from its lack of integrity, and one is the strict requirement that every IV be unpredictable — creating four primary attack vectors:</p>
   <ol>
     <li><strong>No ciphertext integrity / Malleability:</strong> Because <code>Pᵢ = D_K(Cᵢ) ⊕ Cᵢ₋₁</code>, an attacker can modify ciphertext bytes to inject chosen changes into decrypted plaintext without triggering decryption errors.</li>
     <li><strong>Padding oracle side-channel feedback:</strong> Because CBC does not authenticate ciphertext before decryption, implementations must decrypt and unpad data (e.g. PKCS#7). Revealing whether padding is valid creates a 1-bit side channel that recovers complete plaintext.</li>
-    <li><strong>Predictable / Chained Initialization Vectors:</strong> CBC requires an unpredictable IV for every message. Reusing an IV or chaining IVs across messages allows an adversary to evaluate chosen-plaintext hypotheses and break IND-CPA security.</li>
+    <li><strong>Predictable / Chained Initialization Vectors:</strong> CBC requires an unpredictable IV for every message. Reusing an IV or chaining IVs across messages allows an adversary to evaluate chosen-plaintext hypotheses and break IND-CPA security — indistinguishability under chosen-plaintext attack, the guarantee that ciphertexts reveal nothing about the plaintext even to an attacker who can choose plaintexts. This is a usage requirement CBC states explicitly, not a defect unique to the mode; violating it breaks confidentiality even when the ciphertext is authenticated.</li>
   </ol>
   <figure>
     <img src="diagrams/taxonomy.svg" alt="Taxonomy tree showing CBC mode's three root causes (No integrity, Padding oracle, Predictable IV) mapping to Vector 1 Bit-flipping, Vector 2 Padding oracle decryption, Vector 3 Predictable IV BEAST attack, and Vector 4 CBC-R forgery.">
@@ -49,6 +49,7 @@
   <p>When an application encrypts structured data (such as session cookies, URL query parameters, or database records) using CBC mode without a cryptographic MAC, an attacker can modify specific fields without knowing the encryption key. Modifying byte <code>j</code> of block <code>Cᵢ₋₁</code> produces an exact bit-flip in byte <code>j</code> of block <code>Pᵢ</code>:</p>
   <p><code>P'ᵢ[j] = D_K(Cᵢ)[j] ⊕ C'ᵢ₋₁[j] = D_K(Cᵢ)[j] ⊕ (Cᵢ₋₁[j] ⊕ Δ) = Pᵢ[j] ⊕ Δ</code></p>
   <p>While block <code>Pᵢ₋₁</code> is scrambled into pseudorandom bytes (<code>D_K(C'ᵢ₋₁) ⊕ Cᵢ₋₂</code>), target block <code>Pᵢ</code> receives the exact desired modification. In formats with delimiters or separate fields, the corrupted preceding block is often parsed safely or ignored, while the modified block elevates user privileges.</p>
+  <p class="muted">A note on indexing: the relations above number blocks from 1 with <code>C₀ = IV</code>. The demonstration and its diagram number the 16-byte blocks from 0 with the IV kept separate, so the attacker's payload lands in block 2 (bytes 32–47) and the ciphertext block flipped to alter it is <code>C[1]</code> (bytes 16–31).</p>
 
   <figure>
     <img src="diagrams/vector1-bit-flipping.svg" alt="CBC bit-flipping diagram: XORing bytes 0 and 5 of the preceding ciphertext block C[1] with delta 0x01 turns plaintext block P[2] from :role&lt;admin into ;role=admin; on server decryption, while block P[1] is scrambled to garbage. Demonstrated against a local ProfileCookieService; no key knowledge required.">
@@ -224,7 +225,7 @@
         </tr>
         <tr>
           <td><strong>Sweet32 (2016)</strong><br><a href="https://nvd.nist.gov/vuln/detail/CVE-2016-2183">CVE-2016-2183</a></td>
-          <td>Birthday collision attack on 64-bit block ciphers (3DES, Blowfish) in CBC mode. After encrypting ≈32 GB of data under one key (2<sup>32</sup> blocks), ciphertext block collisions revealed plaintext (<a href="https://sweet32.info/">Bhargavan &amp; Leurent, ACM CCS 2016</a>).</td>
+          <td>Birthday collision attack on <strong>64-bit</strong> block ciphers (3DES, Blowfish) in CBC mode. After encrypting ≈32 GB of data under one key (2<sup>32</sup> blocks), ciphertext block collisions revealed plaintext (<a href="https://sweet32.info/">Bhargavan &amp; Leurent, ACM CCS 2016</a>). AES-CBC's 128-bit block is not subject to this bound; it is listed as a structural CBC-mode limitation, not an attack on AES-CBC.</td>
           <td>Structural Bound</td>
         </tr>
         <tr>
@@ -248,7 +249,7 @@
 
   <div class="callout">
     <span class="callout-title">What to remember</span>
-    <p style="margin:0">CBC mode provides confidentiality without integrity. That lack of authentication makes ciphertext malleable, leaks padding oracle side channels, and enables arbitrary message forgery. The standard defense is Authenticated Encryption (AES-GCM or ChaCha20-Poly1305) with a unique per-message nonce, completely eliminating padding and malleability attacks.</p>
+    <p style="margin:0">CBC provides confidentiality but not integrity, and it assumes every IV is unpredictable. On its own — unauthenticated, or with a predictable IV — it is malleable, leaks padding-oracle side channels, and can be forged. The fix is authentication: Encrypt-then-MAC with unpredictable IVs makes legacy CBC safe, but the modern default is Authenticated Encryption (AES-GCM or ChaCha20-Poly1305) with a unique per-message nonce, which delivers confidentiality and integrity together and eliminates padding and malleability attacks.</p>
   </div>
 
   <h2>Primary references</h2>

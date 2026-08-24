@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Why AES-CBC is unsafe — interactive demonstrations running real AES in the browser.",
+  "description": "Why unauthenticated AES-CBC is unsafe — interactive demonstrations running real AES in the browser.",
   "scripts": {
     "test": "node --test",
     "lint": "eslint ."
