@@ -405,7 +405,113 @@ def plan(root, current, today):
     }
 
 
-def record(root, current, today, verdicts):
+# Passes whose verdict is inadmissible without the artifact that proves the method ran.
+# A verdict is a conclusion; these are the evidence it rests on. Requiring them at the
+# recording gate is what stops a pass being reported as done when its defining comparison
+# never reached the page — the failure that produced argument-integrity v2.
+EVIDENCE_REQUIRED = {
+    "argument-integrity": {
+        "fields": ("thesis_stated", "thesis_supported", "gap", "dismissals"),
+        "help": (
+            'argument-integrity must be recorded as an object, not a bare verdict:\n'
+            '  {"argument-integrity": {\n'
+            '     "verdict": "clean" | "findings",\n'
+            '     "thesis_stated":    "the claim as the artifact states it (title/H1/lede)",\n'
+            '     "thesis_supported": "the claim its own sources actually establish",\n'
+            '     "gap": "none" | "overstated" | "understated" | "wrong-scope",\n'
+            '     "dismissals": [ "what was considered and dropped, and why", ... ]\n'
+            '  }}\n'
+            'Write both thesis lines even when they agree. "dismissals" may be empty, but it\n'
+            'must be present: an empty list is an assertion that nothing was dropped, which is\n'
+            'a claim you are making rather than a field you skipped.'
+        ),
+    },
+}
+
+GAP_VALUES = ("none", "overstated", "understated", "wrong-scope")
+
+# Rejected as thesis text: a verdict is not the comparison it summarises.
+_VERDICT_WORDS = {
+    "clean", "ok", "fine", "good", "n/a", "na", "none", "pass", "passed", "yes", "no",
+    "supported", "thesis supported", "unsupported", "findings", "tbd", "todo", "-",
+}
+
+
+def normalize_verdicts(raw):
+    """Split the --record payload into {pass_id: verdict} and {pass_id: evidence}.
+
+    Accepts a bare "clean"/"findings" string for ordinary passes, and requires an object
+    carrying the pass's evidence fields for anything in EVIDENCE_REQUIRED.
+    """
+    verdicts, evidence = {}, {}
+    for pass_id, value in raw.items():
+        spec = EVIDENCE_REQUIRED.get(pass_id)
+        if isinstance(value, str):
+            if spec:
+                raise ValueError(f"{pass_id} requires evidence, not a bare verdict.\n{spec['help']}")
+            verdicts[pass_id] = value
+            continue
+        if not isinstance(value, dict):
+            raise ValueError(f"{pass_id}: value must be a verdict string or an object")
+        if "verdict" not in value:
+            raise ValueError(f"{pass_id}: object form requires a 'verdict' key")
+        verdicts[pass_id] = value["verdict"]
+        if not spec:
+            evidence[pass_id] = {k: v for k, v in value.items() if k != "verdict"}
+            continue
+
+        missing = [f for f in spec["fields"] if f not in value]
+        if missing:
+            raise ValueError(f"{pass_id} is missing {', '.join(missing)}.\n{spec['help']}")
+
+        for field in ("thesis_stated", "thesis_supported"):
+            text = value.get(field)
+            if not isinstance(text, str) or not text.strip():
+                raise ValueError(f"{pass_id}: {field} must be a non-empty string.\n{spec['help']}")
+            if text.strip().casefold().rstrip(".") in _VERDICT_WORDS:
+                raise ValueError(
+                    f"{pass_id}: {field} is a verdict ({text.strip()!r}), not the claim itself. "
+                    "Write the sentence the artifact makes, and the sentence its sources support."
+                )
+            if len(text.strip()) < 20:
+                raise ValueError(
+                    f"{pass_id}: {field} is too short to be a thesis ({text.strip()!r}). "
+                    "State the claim in a full sentence, at its actual strength and scope."
+                )
+
+        gap = value.get("gap")
+        if gap not in GAP_VALUES:
+            raise ValueError(f"{pass_id}: gap must be one of {', '.join(GAP_VALUES)}; got {gap!r}")
+        # The invariant that catches an honest field beside a dishonest one: if the two
+        # thesis lines differ, the artifact overstates or misscopes its own claim, and that
+        # is a finding by definition. Recording "clean" beside a non-none gap is the exact
+        # contradiction that let the original miss through.
+        if gap != "none" and verdicts[pass_id] != "findings":
+            raise ValueError(
+                f"{pass_id}: gap is {gap!r} but verdict is {verdicts[pass_id]!r}. "
+                "A thesis that overstates, understates, or misscopes what its sources support "
+                "is a required finding — record 'findings'."
+            )
+
+        dismissals = value.get("dismissals")
+        if not isinstance(dismissals, list) or not all(
+            isinstance(d, str) and d.strip() for d in dismissals
+        ):
+            raise ValueError(
+                f"{pass_id}: dismissals must be a list of non-empty strings (may be empty).\n"
+                f"{spec['help']}"
+            )
+        evidence[pass_id] = {
+            "thesis_stated": value["thesis_stated"].strip(),
+            "thesis_supported": value["thesis_supported"].strip(),
+            "gap": gap,
+            "dismissals": [d.strip() for d in dismissals],
+        }
+    return verdicts, evidence
+
+
+def record(root, current, today, verdicts, evidence=None):
+    evidence = evidence or {}
     files = repository_files(root)
     state = load_state(root) or {"schema_version": SCHEMA_VERSION, "passes": {}}
     state["schema_version"] = SCHEMA_VERSION
@@ -421,7 +527,7 @@ def record(root, current, today, verdicts):
         if pass_id not in verdicts:
             continue  # pass was cached this run; leave its earlier record intact
         fingerprint, _ = pass_fingerprint(files, spec)
-        passes[pass_id] = {
+        entry = {
             "version": spec["version"],
             "input_fingerprint_sha256": fingerprint,
             "model": current.get("model"),
@@ -429,6 +535,9 @@ def record(root, current, today, verdicts):
             "verified_on": today.isoformat(),
             "verdict": verdicts[pass_id],
         }
+        if pass_id in evidence:
+            entry["evidence"] = evidence[pass_id]
+        passes[pass_id] = entry
     path = root / STATE_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -480,7 +589,11 @@ def parse_args():
                              "written after remediation, so its fingerprint describes the fixed "
                              "content. Routing never reads it; anything deliberately left unfixed "
                              "belongs in reviews/CONTENT_DECISIONS.yml as a rejected or "
-                             "accepted-limitation record.")
+                             "accepted-limitation record. Passes listed in EVIDENCE_REQUIRED "
+                             "(currently argument-integrity) will NOT accept a bare verdict: they "
+                             "need an object carrying the artifact that proves the method ran — for "
+                             "argument-integrity, both thesis lines, the gap, and the dismissal "
+                             "list. Run with an invalid payload to see the exact required shape.")
     parser.add_argument("--today", help="Override today's date (YYYY-MM-DD), for testing")
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     return parser.parse_args()
@@ -493,14 +606,17 @@ def main():
     try:
         root = repository_root()
         if args.record:
-            verdicts = json.loads(args.record)
-            unknown = sorted(set(verdicts) - set(PASSES))
+            raw = json.loads(args.record)
+            if not isinstance(raw, dict):
+                raise ValueError("--record payload must be a JSON object of pass id -> result")
+            unknown = sorted(set(raw) - set(PASSES))
             if unknown:
                 raise ValueError(f"unknown pass ids: {', '.join(unknown)}")
+            verdicts, evidence = normalize_verdicts(raw)
             bad = {k: v for k, v in verdicts.items() if v not in ("clean", "findings")}
             if bad:
                 raise ValueError(f"verdicts must be 'clean' or 'findings': {bad}")
-            state = record(root, current, today, verdicts)
+            state = record(root, current, today, verdicts, evidence)
             print(f"recorded {len(verdicts)} pass result(s) to {STATE_PATH}")
             if args.json:
                 print(json.dumps(state, indent=2, sort_keys=True))
