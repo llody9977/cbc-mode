@@ -1,7 +1,7 @@
 {
   "last_review": {
     "branch": "fix/no-ai-attribution-and-record-pointer",
-    "commit": "10204955ae8cdbeb5ac98ac5229e8ab34e851aba",
+    "commit": "70d1472cd4a87f3cae47ba0d733c730f349bdd00",
     "date": "2026-08-24",
     "effort": "high",
     "model": "claude-opus-5"
@@ -21,7 +21,7 @@
       "model": "claude-opus-5",
       "verdict": "findings",
       "verified_on": "2026-08-24",
-      "version": 1
+      "version": 2
     },
     "cross-format": {
       "effort": "high",

@@ -185,10 +185,20 @@ PASSES = {
     },
     "argument-integrity": {
         "title": "Argument integrity (thesis, comparison set, demonstration, dangling claims)",
-        "version": 1,
+        "version": 2,
         "inputs": ["prose"],
         "decay_days": None,
-        "changelog": {1: "Initial versioned definition."},
+        "changelog": {
+            1: "Initial versioned definition.",
+            2: "Record the thesis as TWO adjacent lines — as stated, and as the sources "
+               "support it — and judge title, H1, lede, and meta description each read "
+               "ALONE. Every dropped candidate finding goes in a dismissal ledger with its "
+               "reason. v1 asked only for a one-sentence thesis and accepted a bare verdict, "
+               "so a reviewer could notice that a headline overstated its sources, reason "
+               "that the body qualified it, record 'thesis supported', and leave no trace of "
+               "the judgement. The detection worked and the disposition was silent; bytes "
+               "were identical and the method had no place to put the comparison.",
+        },
     },
     "executable-demonstration": {
         "title": "Executable demonstration correctness",

@@ -101,11 +101,20 @@ Use **covered**, **not applicable** with a reason, **required gap**, or **option
 
 What the verified claims add up to. Every other section decomposes the content; this one recomposes it. A finding here is structural — resolved by adding, removing, reordering, or reframing, not by correcting a sentence.
 
-**Central claim, in one sentence (extracted from title, lede, and summary):**
+Fill both lines below before answering the table. A bare verdict ("thesis supported") is not an acceptable substitute — the mismatch only becomes visible when the two readings sit next to each other. If they are identical, write them both and say so.
+
+**Thesis AS STATED** (verbatim force and scope of the title, H1, lede, meta description):
+
+**Thesis AS SUPPORTED** (what this artifact's own sources establish, at their actual strength and scope):
+
+**Gap between the two lines:** none | overstated | understated | wrong scope → if anything but "none", that is a required finding.
+
+Each of title / H1 / lede / meta description / README opening is also judged **alone**, as the only sentence a reader sees. "The body qualifies it" does not clear an overstated headline — the body is what did not travel with it.
 
 | Test | Result | Evidence or finding |
 | --- | --- | --- |
 | Thesis support — do the cited sources support that claim at that strength and scope? |  |  |
+| Detached headline — does each of title, H1, lede, and meta description hold up read alone? |  |  |
 | Comparison-set validity — is every compared element an option the reader can select, is the set complete, does one axis run through it? |  |  |
 | Demonstration sufficiency — does each demonstration show both sides of the contrast it teaches, with other variables held constant? |  |  |
 | Dangling claims — is every threat, mechanism, limit, or term introduced either developed or removed? |  |  |
@@ -153,6 +162,16 @@ For each finding, record the artifact and location, exact issue, classification,
 
 None recorded yet.
 
+## Dismissal ledger — candidates considered and dropped
+
+Every concern surfaced during the review and then judged not to be a finding. A dismissal is a judgement; unrecorded, it cannot be audited or disagreed with and looks identical to never having noticed. Most dismissals are correct — the ledger costs a line each and makes the wrong one visible to someone other than the reviewer who made it.
+
+"Qualified elsewhere in the document" is not a valid reason for a headline, title, lede, or summary claim. Record it as a finding instead.
+
+| What was noticed | Artifact and location | Why it is not a finding |
+| --- | --- | --- |
+|  |  |  |
+
 ## Optional coverage
 
 None recorded yet.
@@ -176,7 +195,8 @@ None recorded yet.
 - [ ] Every visual was reviewed as its own artifact for independent correctness, detached self-sufficiency, generator provenance, and standalone defensibility, separately from the cross-format pass.
 - [ ] Applicable mechanical and rendered checks passed or their limitations are recorded.
 - [ ] Applicable durable content decisions were reconciled after the independent claim review, and every reversal or supersession is justified.
-- [ ] The argument-integrity pass was completed and the one-sentence thesis recorded.
+- [ ] The argument-integrity pass was completed, with the thesis recorded both as stated and as supported, and each of title / H1 / lede / meta description judged read-alone.
+- [ ] Every candidate finding that was considered and dropped is in the dismissal ledger with its reason.
 - [ ] Residual exhaustion was completed after findings were assembled.
 - [ ] Every guard from a previous finding was executed and still fires.
 - [ ] Each remediated finding gained a guard, or the reason it could not be mechanized is recorded.

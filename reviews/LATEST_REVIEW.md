@@ -50,7 +50,7 @@ Out-of-scope boundaries and reason: `LICENSE` (verbatim Apache-2.0), `package-lo
 | Visual content (independent correctness, provenance) | v2 | **Findings → fixed** | F-1 (dark-mode contrast) and O-1 (light-box) fixed; verified in dark mode at ~13:1; generator↔SVG byte-match re-confirmed. |
 | Cross-page consistency, prerequisites, sequencing | v1 | **Findings → fixed** | F-2 thesis reframe propagated consistently across index/README/DISCLAIMER/package.json. |
 | Topic completeness (gap matrix) | v1 | **Findings → fixed** | O-4 (Sweet32 scoped to 64-bit ciphers). No required gaps. |
-| Argument integrity (thesis, comparison, demonstration) | v1 | **Findings → fixed** | F-2: thesis corrected from "CBC is unsafe" to "unauthenticated/misused CBC is unsafe; authenticated CBC is sound." |
+| Argument integrity (thesis, comparison, demonstration) | **v2** | **Findings → fixed** | F-2: thesis corrected from "CBC is unsafe" to "unauthenticated/misused CBC is unsafe; authenticated CBC is sound." Re-run under the v2 method (two-line thesis, read-alone headline test, dismissal ledger) after that method was bumped in response to this miss — see the Argument integrity and Dismissal ledger sections below. |
 | Executable demonstration under adversarial inputs | v2 | Clean | `node --test` 10/10; Vector 1 also driven live in a real browser; demo code unchanged. |
 | Decision-history reconciliation | v1 | Clean | Register re-populated (CD-0001…CD-0007) and extended with CD-0008 (framing) and CD-0009 (theme-aware boxes). |
 
@@ -73,6 +73,38 @@ See CD-0001…CD-0004 for the durable copies of the standards/attribution claims
 | AEAD / EtM fix | covered | covered | covered | covered | covered | covered | covered | covered | covered | covered | covered | covered | covered |
 
 No open gaps.
+
+## Argument integrity (v2 method)
+
+**Thesis AS STATED** (post-fix): "Unauthenticated AES-CBC is unsafe — CBC provides confidentiality but not integrity and requires unpredictable IVs; used unauthenticated or with a predictable IV it is exploitable without the key, but CBC with Encrypt-then-MAC and unpredictable IVs is a sound construction."
+
+**Thesis AS SUPPORTED** (what this artifact's own sources establish): NIST SP 800-38A defines CBC as a *confidentiality* mode that requires an unpredictable IV and makes no integrity claim; RFC 7366 standardizes Encrypt-then-MAC for TLS CBC ciphersuites (i.e. authenticated CBC is a legitimate construction); Vaudenay 2002, Rizzo & Duong 2010, and BEAST/CVE-2011-3389 establish that *unauthenticated* or *predictable-IV* CBC is practically exploitable. Together: unauthenticated or misused CBC is unsafe; CBC is not authenticated encryption; authenticated CBC with unpredictable IVs is sound.
+
+**Gap between the two lines: none** (post-fix). Pre-fix the stated thesis was "AES-CBC mode is unsafe", which was **overstated** relative to this same source set — that gap is finding F-2.
+
+| Test | Result | Evidence or finding |
+| --- | --- | --- |
+| Thesis support at stated strength and scope | Pass (post-fix) | Two lines above now agree; F-2 recorded for the pre-fix gap |
+| Detached headline — title, H1, lede, meta description each read alone | Pass (post-fix) | All six surfaces carry the "unauthenticated" qualifier; verified by grep that no bare "CBC (mode) is unsafe" remains |
+| Comparison-set validity | Pass | The EtM / MtE / E&M set are all options a constrained reader can select, on one axis (composition order). Sweet32 sits in a *real-world evidence* table, not a decision comparison — see dismissal ledger D-5 |
+| Demonstration sufficiency | Pass | Each vector shows the attack succeeding *and* the GCM defense rejecting tampering; Vector 1 driven live |
+| Dangling claims | Pass | IND-CPA now glossed (O-2); every vector developed with mechanism, demo, and mitigation |
+| Structure serves the decision | Pass | Mechanism → root causes → vectors → detection → fix → residual risk matches how a reader acts |
+
+## Dismissal ledger — candidates considered and dropped
+
+Concerns surfaced during this review and judged not to be findings. Recorded so the judgement is auditable rather than invisible.
+
+| What was noticed | Artifact and location | Why it is not a finding |
+| --- | --- | --- |
+| D-1: `xorBytes` truncates to the shorter input (`Math.min`) instead of throwing on a length mismatch | `docs/js/crypto.mjs` | Every reachable call site passes two equal-length 16-byte blocks (verified across attacks.mjs). No reachable path produces a short result. Flagging it would be speculative hardening of a demo-scoped helper, not a defect in the content under review. |
+| D-2: `latin1Decode` spreads a Uint8Array into `String.fromCharCode`, which can blow the stack on very large inputs | `docs/js/crypto.mjs` | Demo payloads are tens to hundreds of bytes; the page never decodes attacker-sized buffers. Out of scope at this artifact's operating size. |
+| D-3: the key-handle cache stores the `importKey` promise, so a rejection would be cached permanently | `docs/js/crypto.mjs` | Keys are ephemeral in-page demo keys of fixed valid length; `importKey` has no realistic rejection path here. Documented behaviour, not a fault. |
+| D-4: `GRAY` is now an unused constant after the O-1 fix | `docs/diagrams/generate_diagrams.py` | Harmless unused palette constant in a generator; removing it is churn with no reader-visible effect. Lint does not flag it (generator is outside the eslint scope). |
+| D-5: Sweet32 appears alongside CBC attacks and could read as an AES-CBC attack (comparison-set validity) | `docs/index.html` real-world evidence table | The table is *historical evidence*, not a decision comparison, and the row is labeled "Structural Bound". Rather than remove it, the scope was made explicit (O-4). Recorded here because the comparison-set test was genuinely applied to it and returned "not a comparison set". |
+| D-6: `reviews/REVIEW_TEMPLATE.md` and `CONTENT_DECISION_GUIDE.md` differ from prose style elsewhere | `reviews/` | Bootstrapped verbatim from the doc-review skill assets; the standard forbids locally forking them. Correctly out of scope. |
+
+**Note on the one dismissal that was wrong.** The pre-fix thesis overclaim (F-2) was surfaced during the first pass and dismissed with the reasoning "the lede qualifies it, so the title is careful enough" — a dismissal that left no trace, because the v1 method had nowhere to record it. That is the specific failure that motivated the `argument-integrity` v1→v2 bump and this ledger. "Qualified elsewhere in the document" is now explicitly an invalid dismissal reason for a title, headline, lede, or summary claim.
 
 ## Cross-format and cross-page ledger
 
