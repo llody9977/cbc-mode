@@ -59,7 +59,23 @@ def text(x, y, s, size=13, fill=INK, anchor="middle", weight="400", mono=False, 
     parts.append('</text>')
     return "".join(parts)
 
+def _rel_luminance(hex_color):
+    h = hex_color.lstrip("#")
+    if len(h) != 6:
+        return None
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+
 def box(x, y, w, h, label, fill=NEU_F, stroke=NEU_S, tc=INK, mono=False, rx=9, size=13, weight="600", lh=15, sw=1.5):
+    # Guard (regression for modes-cbc-vs-gcm.svg dark-mode contrast): a hardcoded hex
+    # fill does not switch with the theme, but INK/MUTED text does. Pairing them makes the
+    # label vanish in one theme — near-white text on a near-white box in dark mode. Neutral
+    # boxes must pass the NEU_F sentinel so both box and text are theme-aware; a fixed-literal
+    # fill is only allowed with a fixed-literal text color (the semantic badges).
+    assert not (isinstance(fill, str) and fill.startswith("#") and tc in (INK, MUTED)), (
+        f"box {label[:30]!r} pairs a hardcoded fill {fill} with theme-variable text {tc}; "
+        f"use the NEU_F sentinel so the box tracks the theme"
+    )
     n = len(label.split("\n"))
     cx, cy = x + w / 2, y + h / 2
     first = cy - (n - 1) * lh / 2 + size / 3
@@ -108,7 +124,7 @@ def d1():
     b.append(panel(30, 96, 400, 240))
     b.append(text(230, 122, "AES-CBC Decryption (Malleable)", size=14, fill=RED, weight="700"))
     b.append(box(60, 145, 140, 36, "Ciphertext C[i-1]", fill="#fee2e2", stroke=RED, tc="#991b1b", size=12))
-    b.append(box(250, 145, 140, 36, "Ciphertext C[i]", fill="#f1f5f9", stroke=NEU_S, tc=INK, size=12))
+    b.append(box(250, 145, 140, 36, "Ciphertext C[i]", fill=NEU_F, stroke=NEU_S, tc=INK, size=12))
     b.append(box(250, 210, 140, 36, "AES Decrypt D_K(·)", fill=NAVY, stroke="#0d1b2a", tc="#fff", size=12))
     b.append(arrow(320, 181, 320, 210))
     b.append(box(160, 266, 140, 36, "Plaintext P[i]", fill="#fee2e2", stroke=RED, tc="#991b1b", size=12))
@@ -121,7 +137,7 @@ def d1():
     # Right: AES-GCM
     b.append(panel(470, 96, 400, 240))
     b.append(text(670, 122, "AES-GCM (Authenticated)", size=14, fill=GREEN, weight="700"))
-    b.append(box(500, 145, 150, 36, "Ciphertext C", fill="#f1f5f9", stroke=NEU_S, tc=INK, size=12))
+    b.append(box(500, 145, 150, 36, "Ciphertext C", fill=NEU_F, stroke=NEU_S, tc=INK, size=12))
     b.append(box(690, 145, 150, 36, "Auth Tag T", fill="#dcfce7", stroke=GREEN, tc="#166534", size=12))
     b.append(box(500, 205, 340, 36, "Verify GHASH Tag T == T_computed?", fill=NAVY, stroke="#0d1b2a", tc="#fff", size=12))
     b.append(arrow(575, 181, 575, 205))
@@ -200,7 +216,7 @@ def d3():
     b.append(arrow(240, 316, 240, 345))
     b.append(arrow(620, 316, 620, 345))
 
-    b.append(box(60, 345, 360, 36, "P'[1] = Scrambled garbage", fill="#f1f5f9", stroke=GRAY, tc=MUTED, size=12))
+    b.append(box(60, 345, 360, 36, "P'[1] = Scrambled garbage", fill=NEU_F, stroke=NEU_S, tc=MUTED, size=12))
     b.append(box(440, 345, 360, 36, "P'[2] starts ';role=admin;' — FORGED ROLE", fill="#fee2e2", stroke=RED, tc="#991b1b", size=12, weight="700"))
 
     b.append(text(W / 2, 405, "Scope: demonstrated on local ProfileCookieService; no knowledge of secret key required.",

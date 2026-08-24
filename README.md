@@ -1,11 +1,11 @@
-# AES-CBC mode is unsafe
+# Unauthenticated AES-CBC is unsafe
 
 ![CI](https://github.com/llody9977/cbc-mode/actions/workflows/ci.yml/badge.svg)
 ![CodeQL](https://github.com/llody9977/cbc-mode/actions/workflows/codeql.yml/badge.svg)
 ![Secret scan](https://github.com/llody9977/cbc-mode/actions/workflows/gitleaks.yml/badge.svg)
 ![License](https://img.shields.io/github/license/llody9977/cbc-mode)
 
-Cipher Block Chaining (CBC) was designed to eliminate the block-repetition leaks of ECB by XORing each plaintext block with the preceding ciphertext block. However, CBC mode provides **confidentiality without integrity**. That lack of authentication makes ciphertext malleable: flipping bits in one block alters the next block deterministically, unauthenticated decryption leaks padding validation side channels (padding oracles), predictable IVs break IND-CPA security, and oracle access enables arbitrary message forgery without knowing the key.
+Cipher Block Chaining (CBC) was designed to eliminate the block-repetition leaks of ECB by XORing each plaintext block with the preceding ciphertext block. It delivers **confidentiality** — but **not integrity**. CBC is not authenticated encryption: on its own it cannot detect a modified ciphertext, and it depends on every IV being unpredictable. Used unauthenticated (the common case) or with a predictable IV, CBC is exploitable without the key: flipping ciphertext bits injects chosen changes into the plaintext, an endpoint that leaks padding validity becomes a decryption oracle, a predictable IV breaks IND-CPA security, and that same oracle forges ciphertext outright. The mode itself is not broken — CBC with Encrypt-then-MAC and unpredictable IVs is a sound construction — but it is unsafe by default and easy to misuse, which is why modern designs use AEAD instead.
 
 **[▶ Open the interactive site →](https://llody9977.github.io/cbc-mode/)** — every attack below runs live in your browser against real AES.
 

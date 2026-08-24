@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Demonstrating why AES-CBC mode is unsafe through mathematical breakdowns, real-world CVE analysis, and interactive browser-based demonstrations running real Web Crypto AES.
+Demonstrating why unauthenticated AES-CBC is unsafe — its lack of integrity and its dependence on unpredictable IVs — through mathematical breakdowns, real-world CVE analysis, and interactive browser-based demonstrations running real Web Crypto AES.
 
 ## No warranty
 

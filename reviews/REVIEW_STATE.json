@@ -1,0 +1,113 @@
+{
+  "last_review": {
+    "branch": "fix/no-ai-attribution-and-record-pointer",
+    "commit": "4c9e9a5f07191635a07c531c728bc560dd5b4965",
+    "date": "2026-08-24",
+    "effort": "high",
+    "model": "claude-opus-5"
+  },
+  "passes": {
+    "adversarial-claims": {
+      "effort": "high",
+      "input_fingerprint_sha256": "cbe2f3b0a9adaa9dd2ee6c8e8af0efee2d7d17c4b0f54c91fba5fcbf54059c5d",
+      "model": "claude-opus-5",
+      "verdict": "clean",
+      "verified_on": "2026-08-24",
+      "version": 1
+    },
+    "argument-integrity": {
+      "effort": "high",
+      "evidence": {
+        "dismissals": [
+          "D-1 xorBytes truncates to the shorter input instead of throwing: every reachable call site passes equal-length 16-byte blocks, so no path yields a short result.",
+          "D-2 latin1Decode spreads into String.fromCharCode and could overflow the stack: demo payloads are hundreds of bytes at most.",
+          "D-3 the key-handle cache would retain a rejected importKey promise: keys are ephemeral valid-length demo keys with no realistic rejection path.",
+          "D-4 GRAY is unused after the O-1 fix: harmless unused palette constant in a generator, removing it is churn.",
+          "D-5 Sweet32 could read as an AES-CBC attack: the table is historical evidence rather than a decision comparison and the row is labelled Structural Bound; scope made explicit as O-4 instead.",
+          "D-6 reviews/REVIEW_TEMPLATE.md and CONTENT_DECISION_GUIDE.md differ in style: bootstrapped verbatim from the skill assets and must not be locally forked."
+        ],
+        "gap": "none",
+        "thesis_stated": "Unauthenticated AES-CBC is unsafe: CBC provides confidentiality but not integrity and requires unpredictable IVs; used unauthenticated or with a predictable IV it is exploitable without the key, but CBC with Encrypt-then-MAC and unpredictable IVs is sound.",
+        "thesis_supported": "NIST SP 800-38A defines CBC as a confidentiality mode requiring an unpredictable IV and makes no integrity claim; RFC 7366 standardizes Encrypt-then-MAC for TLS CBC; Vaudenay 2002, Rizzo and Duong 2010, and CVE-2011-3389 show unauthenticated or predictable-IV CBC is practically exploitable."
+      },
+      "input_fingerprint_sha256": "cbe2f3b0a9adaa9dd2ee6c8e8af0efee2d7d17c4b0f54c91fba5fcbf54059c5d",
+      "model": "claude-opus-5",
+      "verdict": "findings",
+      "verified_on": "2026-08-24",
+      "version": 2
+    },
+    "cross-format": {
+      "effort": "high",
+      "input_fingerprint_sha256": "2a4df2294854c8ae7ab132c2d529bb058fb2b9b9a5bac36abe008c37cbb13831",
+      "model": "claude-opus-5",
+      "verdict": "clean",
+      "verified_on": "2026-08-24",
+      "version": 1
+    },
+    "cross-page": {
+      "effort": "high",
+      "input_fingerprint_sha256": "da97e8daeb7c33b39e2badadedab399db95f2e2770568b0d0b4b85efe36a7519",
+      "model": "claude-opus-5",
+      "verdict": "findings",
+      "verified_on": "2026-08-24",
+      "version": 1
+    },
+    "decision-reconciliation": {
+      "effort": "high",
+      "input_fingerprint_sha256": "a255c63ba5137c3c758d3f77224b5e2fa3cda58695ec49ca8276334c742a5dc5",
+      "model": "claude-opus-5",
+      "verdict": "clean",
+      "verified_on": "2026-08-24",
+      "version": 1
+    },
+    "evidence-authority": {
+      "effort": "high",
+      "input_fingerprint_sha256": "aab351978f80ee9014d0f54710160a4980deca4e12a8336e1649219147562ce6",
+      "model": "claude-opus-5",
+      "verdict": "clean",
+      "verified_on": "2026-08-24",
+      "version": 1
+    },
+    "executable-demonstration": {
+      "effort": "high",
+      "input_fingerprint_sha256": "9a0ba51ee75cc7caa20ab716802d145e4211b41099698ca3528ad21778602a70",
+      "model": "claude-opus-5",
+      "verdict": "clean",
+      "verified_on": "2026-08-24",
+      "version": 2
+    },
+    "factual-correctness": {
+      "effort": "high",
+      "input_fingerprint_sha256": "35449899bf31ea84c2bffd9ab77601b63d612e2e0b1739983ca4c008b0df5f95",
+      "model": "claude-opus-5",
+      "verdict": "clean",
+      "verified_on": "2026-08-24",
+      "version": 1
+    },
+    "terminology-taxonomy": {
+      "effort": "high",
+      "input_fingerprint_sha256": "cbe2f3b0a9adaa9dd2ee6c8e8af0efee2d7d17c4b0f54c91fba5fcbf54059c5d",
+      "model": "claude-opus-5",
+      "verdict": "findings",
+      "verified_on": "2026-08-24",
+      "version": 1
+    },
+    "topic-completeness": {
+      "effort": "high",
+      "input_fingerprint_sha256": "cbe2f3b0a9adaa9dd2ee6c8e8af0efee2d7d17c4b0f54c91fba5fcbf54059c5d",
+      "model": "claude-opus-5",
+      "verdict": "findings",
+      "verified_on": "2026-08-24",
+      "version": 1
+    },
+    "visual-content": {
+      "effort": "high",
+      "input_fingerprint_sha256": "6519db70eb72168131d58c2e539310e43d8e7ddcf761d890fa6dcd3fa7588fc2",
+      "model": "claude-opus-5",
+      "verdict": "findings",
+      "verified_on": "2026-08-24",
+      "version": 2
+    }
+  },
+  "schema_version": 1
+}

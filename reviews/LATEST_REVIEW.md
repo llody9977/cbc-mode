@@ -1,4 +1,4 @@
-# Fresh review record: whole project
+# Fresh review record: cbc-mode full content (docs, demos, diagrams, prose)
 
 > Lives at `reviews/LATEST_REVIEW.md` and is overwritten by each new review — this file always holds the
 > most recent one. Earlier records are in git, not in this folder:
@@ -7,211 +7,196 @@
 
 ## Status and baseline
 
-- Status: Complete with no open findings
-- Review mode: Fresh review (closure review of the state remediated after the review recorded at `83fbcb7`)
-- Review date: 2026-08-23
-- Reviewer: Claude Code (doc-review skill, whole-project scope)
-- Branch: fix/review-16ade34-findings
-- Commit: `b40b896e0530cc627f1086462ba3e8c9a6c52c4d` on `fix/review-16ade34-findings`. That branch was **squash-merged** as `e5c013a` (PR #3), so `b40b896` is not in `main`'s history. The scoped content fingerprint below was re-verified against `e5c013a` and matches exactly, so the reviewed content is intact on `main` — the commit pointer is stale, the evidence is not. Retrieve the original commits from the PR's branch refs if the per-commit split is needed.
-- Worktree: Clean
-- Review state ID: `03a1f3fc039c2e2aa104ac12b07fde3c311fe246ce04bbc5a09c8bf25fc7656f`
-- Scoped content fingerprint: `8963e13d3549e76197535ff16b240396f1db8accf30d5859ef315635ebc0c3a5`
-- State-capture command: `python3 scripts/capture_review_state.py --scope README.md --scope DISCLAIMER.md --scope SECURITY.md --scope CONTRIBUTING.md --scope docs --scope test`
-- Baseline changed during review: **Yes, once, and handled.** Passes ran against `83fbcb7` (fingerprint `4d51a243…`) and produced three findings. Those were fixed in `b40b896`, a new baseline was captured, and the affected passes — factual correctness on the changed unit, cross-format, and all mechanical checks — were repeated against it. Unaffected passes (visual content, decision reconciliation, topic completeness) were not repeated because `b40b896` touches only three prose regions of `docs/index.html`.
+- Status: Complete — all findings found this cycle were remediated and re-verified; no open findings remain.
+- Review mode: Fresh review + remediation. First review under the re-synced pass-versioning scaffolding; every pass ran. Findings were then fixed in the same session, the baseline re-frozen, and affected passes re-verified against the fixed content.
+- Review date: 2026-08-24
+- Review capability (model / effort, recorded for staleness routing): claude-opus-5 / high
+- Branch: `fix/no-ai-attribution-and-record-pointer`
+- Commit: `10204955ae8cdbeb5ac98ac5229e8ab34e851aba` (worktree dirty — fixes applied but not yet committed)
+- Worktree: Dirty. Content edits applied this session: `docs/index.html`, `README.md`, `DISCLAIMER.md`, `package.json` (thesis reframe + O-2/O-3/O-4), `docs/diagrams/generate_diagrams.py` (F-1/O-1 fix + regression guard), and its regenerated `docs/diagrams/modes-cbc-vs-gcm.svg` and `docs/diagrams/vector1-bit-flipping.svg`. Plus out-of-scope `reviews/` and `scripts/` scaffolding.
+- Review state ID (fixed baseline): `76d7410e41e4a4e27f21480717b2920935517f07109261421e4c2039811d9360`
+- Scoped content fingerprint (fixed baseline): `2d5a673720dc5f51e56cc0bcfb1c413b518b8b5dba1afca14f89586ba7885356` (initial review baseline was `bc38d43251d8ee99129fd08810e88f0f87c662ce255667fb7f6539510a221963`, superseded by the fixes)
+- State-capture command: `python3 scripts/capture_review_state.py --scope docs --scope test --scope README.md --scope CONTRIBUTING.md --scope DISCLAIMER.md --scope SECURITY.md`
+- Baseline changed during review: Yes — implementation and review were run as separate phases. Initial baseline reviewed → findings assembled → fixes applied → new baseline captured → affected passes (visual-content, argument-integrity, terminology-taxonomy, cross-page, topic-completeness, cross-format) re-verified and re-recorded against the fixed fingerprint.
 
-### Review lineage
-
-| Baseline | Fingerprint | Outcome |
-| --- | --- | --- |
-| `16ade34` | `7745a5d6…` | Fresh review — 10 required findings, 9 optional gaps. Record retrievable with `git show 83fbcb7:reviews/LATEST_REVIEW.md`. |
-| `27c1e44`, `131a349` | — | Remediation of those findings, plus F-11 found once the first fix stopped masking it. |
-| `83fbcb7` | `4d51a243…` | Closure review — 3 findings (one pre-existing and previously missed, two introduced by the remediation). |
-| `b40b896` | `8963e13d…` | **This record.** Closure findings fixed; affected passes repeated; no open findings. |
-| `e5c013a` | `8963e13d…` | Squash-merge of the above into `main` (PR #3). Fingerprint re-verified and identical, so this record's conclusions carry over unchanged. |
+Prior review this builds on: none carried forward. The previous `reviews/` records were deleted at the user's request before this review, so nothing was cached — this is a from-scratch pass. Earlier records remain in git history prior to this commit's `reviews/` deletion.
 
 ## Scope inventory
 
 | Artifact | Type | Direct dependents or generated counterpart | Inspected |
 | --- | --- | --- | --- |
-| `README.md` | doc | `docs/diagrams/taxonomy.svg` (embedded) | Yes |
-| `docs/index.html` | doc (primary) | `styles.css`, `docs/js/*.mjs`, all 6 SVGs | Yes — re-read in full at `83fbcb7`, changed regions re-read at `b40b896` |
-| `docs/styles.css` | presentation | `docs/index.html` | Yes |
-| `docs/js/crypto.mjs` | code | `attacks.mjs`, `ui.mjs`, `test/` | Yes |
-| `docs/js/attacks.mjs` | code | `ui.mjs`, `test/` | Yes |
-| `docs/js/ui.mjs` | code | `docs/index.html` | Yes |
-| `docs/diagrams/generate_diagrams.py` | generator | all 6 committed SVGs | Yes |
-| `docs/diagrams/*.svg` (6 files) | generated figures | `docs/index.html`, `README.md` | Yes |
-| `test/attacks.test.mjs` | test | `docs/js/*.mjs` | Yes — 10/10 passing |
-| `DISCLAIMER.md`, `SECURITY.md`, `CONTRIBUTING.md` | doc / policy | — | Yes |
-| `package.json`, `eslint.config.mjs`, `.pre-commit-config.yaml`, `.github/workflows/ci.yml` | config | `npm test`, `npm run lint`, secret gate, EOF hook | Yes |
-| `reviews/CONTENT_DECISIONS.yml` | registry | `scripts/verify_content_decisions.py` | Yes — 8 decisions |
+| `docs/index.html` | prose + demos markup | renders 6 diagrams; loads `js/ui.mjs`, `styles.css` | Yes |
+| `docs/js/crypto.mjs` | code (AES-CBC/GCM, PKCS#7) | imported by attacks.mjs, ui.mjs, tests | Yes |
+| `docs/js/attacks.mjs` | code (4 vectors + GCM) | imported by ui.mjs and tests | Yes |
+| `docs/js/ui.mjs` | code (DOM wiring) | browser entrypoint | Yes |
+| `docs/styles.css` | style | index.html | Yes |
+| `docs/diagrams/generate_diagrams.py` | generator | produces all 6 SVGs | Yes (edited: F-1/O-1 + guard) |
+| `docs/diagrams/*.svg` (6) | visuals | generated by generate_diagrams.py | Yes — all 6 (2 regenerated) |
+| `test/attacks.test.mjs` | tests | exercises crypto.mjs + attacks.mjs | Yes |
+| `README.md`, `DISCLAIMER.md` | prose | repo-level | Yes (edited: thesis reframe) |
+| `package.json` (description), `CONTRIBUTING.md`, `SECURITY.md` | metadata / prose | repo-level | Yes (package.json description reframed) |
 
-Out-of-scope boundaries and reason: `LICENSE` (verbatim canonical Apache-2.0), `package-lock.json` (generated), `node_modules/` (vendored), `reviews/REVIEW_TEMPLATE.md` and `reviews/CONTENT_DECISION_GUIDE.md` (bootstrapped verbatim from the doc-review skill; not editable locally).
+Out-of-scope boundaries and reason: `LICENSE` (verbatim Apache-2.0), `package-lock.json` (generated), `node_modules/` (vendored), `.github/**` (CI), `reviews/REVIEW_TEMPLATE.md` and `reviews/CONTENT_DECISION_GUIDE.md` (bootstrapped verbatim from the skill).
 
 ## Review passes
 
-| Pass | Complete | Evidence or notes |
-| --- | --- | --- |
-| Factual and technical correctness | Yes | Re-derived every corrected claim against its source. Repeated at `b40b896` for the three changed regions. Produced CR-02. |
-| Evidence, authority, version, date, jurisdiction, and applicability | Yes | Every citation corrected at `131a349` re-checked against the primary text and re-resolved over the network. See CD-0002. |
-| Adversarial wording, assumptions, attacker state, and counterexamples | Yes | Challenged the remediation's own new numbers, which is what produced CR-02 and CR-03. |
-| Terminology, taxonomy, and conceptual boundaries | Yes | EtM / MtE / E&M boundary now defined (CD-0007); root-cause-to-vector mapping unchanged and reaffirmed. |
-| Cross-format consistency | Yes | Repeated at `b40b896`: the only other occurrence of the BEAST candidate count is the code that constructs the list, and it agrees. |
-| Visual content review (independent correctness and defensibility) | Yes | All six SVGs re-derived from the generator and inspected rendered. Not repeated at `b40b896` — no visual changed. |
-| Cross-page consistency, prerequisites, sequence, and duplication | Yes | README ↔ page ↔ footer ↔ tests now describe the same test scope; no residual contradiction. |
-| Topic completeness | Yes | All prior required gaps closed; matrix below. |
-| Mechanical, link, generator, executable, and rendered-output validation | Yes | Fully repeated at `b40b896`. Produced CR-01. |
-| Durable content-decision reconciliation | Yes | All 8 records reconciled; see table. |
-| Residual exhaustion | Yes | Ran at `83fbcb7` (produced CR-01, CR-02, CR-03) and again at `b40b896` (no further findings). |
+| Pass | Version | Verdict this cycle | Notes (post-remediation) |
+| --- | --- | --- | --- |
+| Factual and technical correctness | v1 | Clean | NIST SP 800-38A, SP 800-38D, Rizzo WOOT 2010 verified verbatim; reframe is accurate. |
+| Evidence, authority, version, date, jurisdiction | v1 | Clean | All 20 external URLs resolve 200; quotes match sources. |
+| Adversarial wording, assumptions, attacker state | v1 | Clean | Attacker states precise; Vector 4 IV prerequisite stated everywhere. |
+| Terminology, taxonomy, conceptual boundaries | v1 | **Findings → fixed** | O-2 (IND-CPA glossed), O-3 (block-index convention note added). |
+| Cross-format consistency | v1 | Clean | Query counts consistent; diagrams regenerated and still match prose. |
+| Visual content (independent correctness, provenance) | v2 | **Findings → fixed** | F-1 (dark-mode contrast) and O-1 (light-box) fixed; verified in dark mode at ~13:1; generator↔SVG byte-match re-confirmed. |
+| Cross-page consistency, prerequisites, sequencing | v1 | **Findings → fixed** | F-2 thesis reframe propagated consistently across index/README/DISCLAIMER/package.json. |
+| Topic completeness (gap matrix) | v1 | **Findings → fixed** | O-4 (Sweet32 scoped to 64-bit ciphers). No required gaps. |
+| Argument integrity (thesis, comparison, demonstration) | **v2** | **Findings → fixed** | F-2: thesis corrected from "CBC is unsafe" to "unauthenticated/misused CBC is unsafe; authenticated CBC is sound." Re-run under the v2 method (two-line thesis, read-alone headline test, dismissal ledger) after that method was bumped in response to this miss — see the Argument integrity and Dismissal ledger sections below. |
+| Executable demonstration under adversarial inputs | v2 | Clean | `node --test` 10/10; Vector 1 also driven live in a real browser; demo code unchanged. |
+| Decision-history reconciliation | v1 | Clean | Register re-populated (CD-0001…CD-0007) and extended with CD-0008 (framing) and CD-0009 (theme-aware boxes). |
+
+Always-run tier: mechanical/link/generator/rendered validation — run; guard-regression — the new dark-mode-contrast generator guard fires on the original fault and passes post-fix; the Vector 2 onProgress and BEAST multi-block test guards still fire (10/10); residual-exhaustion — run over every remediated unit.
 
 ## Material-claim ledger
 
-Claims settled by a durable decision reference it rather than restating its sources.
+See CD-0001…CD-0004 for the durable copies of the standards/attribution claims (NIST SP 800-38A IV-unpredictability incl. "must" not "shall"; SP 800-38D 2⁻³²/2⁶⁴/2³² ceilings; Vaudenay padding oracle; Rizzo CBC-R + IV prerequisite) — each verified verbatim against current primary sources this cycle. New material claim introduced by the reframe:
 
-| ID | Artifact and location | Material claim | Classification | Primary source or verification | Repetitions checked | Result |
-| --- | --- | --- | --- | --- | --- | --- |
-| C-001 | `index.html` "The mechanism" | CBC encrypt/decrypt equations | Mathematical | SP 800-38A §6.2 | prose, `modes-cbc-vs-gcm.svg`, `attacks.mjs` header | Closed |
-| C-002 | `index.html` Vector 3, refs | IV "must be unpredictable" | Standards attribution | See CD-0002 — verbatim §6.2 | prose, refs | Closed |
-| C-003 | `index.html` Vector 1 | `Cᵢ₋₁[j] ⊕ Δ` yields `Pᵢ[j] ⊕ Δ` | Mathematical | Test + live browser run | prose, SVG, `ui.mjs` tag | Closed |
-| C-004 | `index.html` Vector 2 + callout | Oracle reports block-wide PKCS#7 validity; a second candidate can pass | Algorithmic | See CD-0004 | prose, callout, SVG, `attacks.mjs` guard | Closed |
-| C-005 | `index.html` Vector 2, demo hint | ≈128 oracle calls per byte; ≈`256 × L` worst case | Numerical limit | **60 randomized runs: mean 8192 queries, 128.0/byte, min 6848, max 10699, 60/60 exact** | prose, callout, SVG, README, hint, test bound | Closed — measurement matches the stated average exactly |
-| C-006 | `index.html` Vector 3 | Predictable IV breaks IND-CPA (BEAST) | Security / CVE | CVE-2011-3389; see CD-0002 for the citation | prose, SVG, table, README | Closed |
-| C-007 | `index.html` Vector 3 demo hint | ≤95 probe requests for printable ASCII, ≤256 otherwise | Numerical limit | Candidate list derived: 256 unique values, 95 printable | hint vs `BEAST_CANDIDATES` | **CR-02** — was "up to 95" flat; corrected |
-| C-008 | `index.html` Vector 4 + callout | CBC-R forgery, conditional on attacker-supplied IV | Attack capability | See CD-0003 | prose, callout, SVG, README, demo verdict | Closed |
-| C-009 | `index.html` Vector 4 | CBC-R originates with Rizzo & Duong 2010 | Attribution | See CD-0002 | prose, refs | Closed |
-| C-010 | `index.html` refs, table | BEAST paper provenance and status | Citation / venue | See CD-0002 | prose ×2, refs | Closed |
-| C-011 | `index.html` residual risk | Deterministic IV capped at `2^s`; RBG capped at 2³² | Standards specification | See CD-0005 | prose, refs | Closed |
-| C-012 | `index.html` real-world table | POODLE ≈256 requests/byte; Sweet32 ≈32 GB at 2³² blocks | Numerical | POODLE paper verbatim; 2³² × 8 B = 32 GiB | table, README | Closed |
-| C-013 | `index.html` fix section | EtM verifies before decrypting; MtE is what Lucky 13 attacked | Security / composition | See CD-0007 | prose, table row | Closed |
-| C-014 | `index.html` footer, README | NIST vectors validate the cipher, not the attacks | Evidence claim | Test 1 uses the vectors; attack tests use random keys | footer, README, test header | Closed |
-| C-015 | `README.md`, lede | Every attack runs live in the browser | Capability claim | All five demos driven end-to-end in a browser | README, lede, footer | Closed |
-| C-016 | `test/attacks.test.mjs` | AES-128-CBC matches SP 800-38A §F.2.1 | Test vector | Key, IV, and all four ciphertext blocks match verbatim | test, README, footer | Closed |
-| C-017 | `index.html` residual risk | GCM nonce reuse compromises GHASH key H | Security | eprint 2016/475 (Böck et al., WOOT 2016) | prose | Closed |
-| C-018 | `index.html` Vector 4 | Step list is a sibling of its paragraphs | Markup correctness | Document parsed; rendered DOM walked | prose region | **CR-01** — `<ol>` was inside `<p>`; corrected |
+| ID | Artifact and location | Material claim | Classification | Verification | Result |
+| --- | --- | --- | --- | --- | --- |
+| C-010 | index.html lede + what-to-remember; README lede | "CBC with Encrypt-then-MAC and unpredictable IVs is a sound construction; the mode itself is not broken." | thesis / normative strength | NIST SP 800-38A (CBC = confidentiality mode, no integrity claim); RFC 7366 (EtM standardized for TLS CBC) | Confirmed — this is the corrected, source-supported claim (see CD-0008) |
+| C-011 | index.html Sweet32 row | "AES-CBC's 128-bit block is not subject to the Sweet32 bound." | numeric scope | 128-bit block birthday bound ≈ 2⁶⁴ blocks, far above practical data; Sweet32 targets 64-bit-block ciphers | Confirmed (see O-4) |
 
 ## Topic completeness matrix
 
-| Topic | Definition | Boundaries | Actors/components | Mechanism/sequence | Assumptions/dependencies | Threats/failures | Limits/residual risk | Selection/use | Operations/evidence | Recovery/lifecycle | Interoperability/migration | Unsafe alternatives | Visual representation |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| CBC mechanism | covered | covered | covered | covered | covered | covered | covered | covered | covered | n/a — mode level | covered | covered | covered |
-| V1 bit-flipping | covered | covered | covered | covered | covered | covered | covered | covered | covered | n/a | covered | covered | covered |
-| V2 padding oracle | covered | covered | covered | covered | covered | covered (false positive now stated) | covered | covered | covered | n/a | covered | covered | covered |
-| V3 predictable IV | covered | covered | covered | covered | covered (`B_target` defined) | covered | covered | covered | covered | n/a | covered | covered | covered |
-| V4 CBC-R forgery | covered | covered | covered | covered | covered (IV prerequisite) | covered | covered (IV prerequisite) | covered | covered | n/a | covered | covered | covered |
-| AEAD remediation | covered | covered | covered | covered | covered | covered | covered | covered | covered | covered (rekeying) | covered | covered (EtM/MtE/E&M) | optional extension |
-| GCM residual risk | covered | covered | covered | covered | covered | covered | covered (both ceilings) | covered | covered | covered | covered | covered | optional extension |
-| Detection guidance | covered | covered | covered | covered | covered | covered | covered | covered | covered | n/a | covered | covered | optional extension |
+| Topic | Def | Bounds | Actors | Mechanism | Assumptions | Threats | Limits/residual | Selection | Ops/evidence | Recovery | Interop/migration | Unsafe alts | Visual |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| CBC mode | covered | covered (now scoped: unauthenticated/misused) | covered | covered | covered | covered | covered | covered | covered | n/a | covered | covered | covered |
+| AEAD / EtM fix | covered | covered | covered | covered | covered | covered | covered | covered | covered | covered | covered | covered | covered |
 
-No required gaps remain. Every category is covered, not applicable with a stated reason, or classified as an optional extension.
+No open gaps.
+
+## Argument integrity (v2 method)
+
+**Thesis AS STATED** (post-fix): "Unauthenticated AES-CBC is unsafe — CBC provides confidentiality but not integrity and requires unpredictable IVs; used unauthenticated or with a predictable IV it is exploitable without the key, but CBC with Encrypt-then-MAC and unpredictable IVs is a sound construction."
+
+**Thesis AS SUPPORTED** (what this artifact's own sources establish): NIST SP 800-38A defines CBC as a *confidentiality* mode that requires an unpredictable IV and makes no integrity claim; RFC 7366 standardizes Encrypt-then-MAC for TLS CBC ciphersuites (i.e. authenticated CBC is a legitimate construction); Vaudenay 2002, Rizzo & Duong 2010, and BEAST/CVE-2011-3389 establish that *unauthenticated* or *predictable-IV* CBC is practically exploitable. Together: unauthenticated or misused CBC is unsafe; CBC is not authenticated encryption; authenticated CBC with unpredictable IVs is sound.
+
+**Gap between the two lines: none** (post-fix). Pre-fix the stated thesis was "AES-CBC mode is unsafe", which was **overstated** relative to this same source set — that gap is finding F-2.
+
+| Test | Result | Evidence or finding |
+| --- | --- | --- |
+| Thesis support at stated strength and scope | Pass (post-fix) | Two lines above now agree; F-2 recorded for the pre-fix gap |
+| Detached headline — title, H1, lede, meta description each read alone | Pass (post-fix) | All six surfaces carry the "unauthenticated" qualifier; verified by grep that no bare "CBC (mode) is unsafe" remains |
+| Comparison-set validity | Pass | The EtM / MtE / E&M set are all options a constrained reader can select, on one axis (composition order). Sweet32 sits in a *real-world evidence* table, not a decision comparison — see dismissal ledger D-5 |
+| Demonstration sufficiency | Pass | Each vector shows the attack succeeding *and* the GCM defense rejecting tampering; Vector 1 driven live |
+| Dangling claims | Pass | IND-CPA now glossed (O-2); every vector developed with mechanism, demo, and mitigation |
+| Structure serves the decision | Pass | Mechanism → root causes → vectors → detection → fix → residual risk matches how a reader acts |
+
+## Dismissal ledger — candidates considered and dropped
+
+Concerns surfaced during this review and judged not to be findings. Recorded so the judgement is auditable rather than invisible.
+
+| What was noticed | Artifact and location | Why it is not a finding |
+| --- | --- | --- |
+| D-1: `xorBytes` truncates to the shorter input (`Math.min`) instead of throwing on a length mismatch | `docs/js/crypto.mjs` | Every reachable call site passes two equal-length 16-byte blocks (verified across attacks.mjs). No reachable path produces a short result. Flagging it would be speculative hardening of a demo-scoped helper, not a defect in the content under review. |
+| D-2: `latin1Decode` spreads a Uint8Array into `String.fromCharCode`, which can blow the stack on very large inputs | `docs/js/crypto.mjs` | Demo payloads are tens to hundreds of bytes; the page never decodes attacker-sized buffers. Out of scope at this artifact's operating size. |
+| D-3: the key-handle cache stores the `importKey` promise, so a rejection would be cached permanently | `docs/js/crypto.mjs` | Keys are ephemeral in-page demo keys of fixed valid length; `importKey` has no realistic rejection path here. Documented behaviour, not a fault. |
+| D-4: `GRAY` is now an unused constant after the O-1 fix | `docs/diagrams/generate_diagrams.py` | Harmless unused palette constant in a generator; removing it is churn with no reader-visible effect. Lint does not flag it (generator is outside the eslint scope). |
+| D-5: Sweet32 appears alongside CBC attacks and could read as an AES-CBC attack (comparison-set validity) | `docs/index.html` real-world evidence table | The table is *historical evidence*, not a decision comparison, and the row is labeled "Structural Bound". Rather than remove it, the scope was made explicit (O-4). Recorded here because the comparison-set test was genuinely applied to it and returned "not a comparison set". |
+| D-6: `reviews/REVIEW_TEMPLATE.md` and `CONTENT_DECISION_GUIDE.md` differ from prose style elsewhere | `reviews/` | Bootstrapped verbatim from the doc-review skill assets; the standard forbids locally forking them. Correctly out of scope. |
+
+**Note on the one dismissal that was wrong.** The pre-fix thesis overclaim (F-2) was surfaced during the first pass and dismissed with the reasoning "the lede qualifies it, so the title is careful enough" — a dismissal that left no trace, because the v1 method had nowhere to record it. That is the specific failure that motivated the `argument-integrity` v1→v2 bump and this ledger. "Qualified elsewhere in the document" is now explicitly an invalid dismissal reason for a title, headline, lede, or summary claim.
 
 ## Cross-format and cross-page ledger
 
 | Concept or claim | Representations compared | Result |
 | --- | --- | --- |
-| CBC-R capability and IV prerequisite | prose, callout, README bullet, `vector4-cbc-r-forgery.svg`, demo verdict | All five agree |
-| Padding-oracle validity test | prose, callout, SVG, `attacks.mjs` guard and comment | All four agree |
-| Padding-oracle query cost | prose, callout, SVG, README, demo hint, test bound | All six agree; hint's figure re-measured over 60 runs |
-| BEAST probe cost | demo hint vs `BEAST_CANDIDATES` construction | Agrees after CR-02 |
-| BEAST notation `B_target` | prose, `vector3-predictable-iv.svg` alt text | Agrees |
-| BEAST citation | prose ×2, Primary references | Agrees; dead URL survives only in the superseded CD-0001 |
-| SP 800-38A IV wording | prose, Primary references | Agrees |
-| SP 800-38D ceilings | prose, Primary references | Agrees |
-| Test-suite evidence scope | footer, README `test/` bullet, test file header | All three agree |
-| Diagram semantic colors | 6 SVGs vs generator docstring | One convention, applied throughout |
+| Thesis ("unauthenticated/misused CBC is unsafe; authenticated CBC is sound") | index title/H1/lede/what-to-remember · README H1/lede · DISCLAIMER · package.json | Consistent after reframe |
+| Padding-oracle query count | prose · vector2.svg · README · POODLE row | Consistent |
+| Vector 4 IV prerequisite | prose callout · vector4.svg · ui.mjs verdict · README | Consistent |
+| Block indexing | mechanism (1-indexed, C₀=IV) · Vector 1 note + diagram (0-indexed, IV separate) | Reconciled by the added indexing note (O-3) |
 
 ## Visual content ledger
 
-No visual changed at `b40b896`; this table records the state verified at `83fbcb7` and unchanged since.
+| Visual | Independently correct? | Self-sufficient when detached? | Generator correspondence | Dark-mode legible? | Result |
+| --- | --- | --- | --- | --- | --- |
+| modes-cbc-vs-gcm.svg | Yes | Yes | Byte-match (regenerated) | **Yes — fixed** (was ~1.1:1, now ~13:1) | Pass |
+| vector1-bit-flipping.svg | Yes | Yes | Byte-match (regenerated) | **Yes — fixed** (P'[1] now theme-aware) | Pass |
+| taxonomy.svg | Yes | Yes | Byte-match | Yes | Pass |
+| vector2 / vector3 / vector4 .svg | Yes | Yes | Byte-match | Not re-rendered (no hardcoded light fills; see limitations) | Pass |
 
-| Visual | Claims it asserts | Independently correct? | Self-sufficient when detached | Caption and alt text verified | Generator and correspondence check | Standalone defensibility | Result |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `modes-cbc-vs-gcm.svg` | CBC feedback path, GCM tag-verify-before-release | Yes | Yes — scope line inside | Alt text conveys the conclusion | Regenerated; byte-identical | Yes | Closed |
-| `taxonomy.svg` | 3 root causes → 4 vectors, attacker-mode labels | Yes | Yes — scope line inside | Alt text lists causes and vectors | Regenerated; byte-identical | Yes | Closed |
-| `vector1-bit-flipping.svg` | Profile string, byte offsets, Δ = 0x01, scrambled P′[1], forged P′[2] | Yes — string now matches the code; Δ stated correctly | Yes | Alt text rewritten with the delta and the scrambled block | Regenerated; matches source | Yes — local service named | Closed |
-| `vector2-padding-oracle.svg` | Block-wide validity, recheck step, `I[15]` derivation, query cost | Yes — biconditional removed | Yes | Alt text rewritten with the false-positive step | Regenerated; matches source | Yes — local mock oracle named | Closed |
-| `vector3-predictable-iv.svg` | Chained-IV rule, `P_guess` formula, match condition | Yes | Yes — names CVE-2011-3389 and the local session | Alt text rewritten with the formula | Regenerated; matches source | Yes — "educational simulation" stated | Closed |
-| `vector4-cbc-r-forgery.svg` | Backward synthesis, `C[n-1] = I[n] ⊕ P[n]`, IV prerequisite | Yes — REQUIRES line added | Yes — prerequisite now inside the artifact | Alt text rewritten with the limitation | Regenerated; matches source | Yes — local oracle named | Closed |
-
-Provenance: the generator is idempotent — run twice, hashes identical, no working-tree diff — so the committed artifacts and their source cannot drift silently under the repository's `end-of-file-fixer` hook.
-
-### Representation opportunities
-
-| Location | What is dense | Proposed form | Required gap or optional extension |
-| --- | --- | --- | --- |
-| Vector 3 BEAST alignment | Block alignment as `i` passes a block boundary, carried by algebra | Block-offset strip showing filler shrinking as recovered bytes fill in | Optional extension — and the exact area where the implementation was wrong, so a figure would have review value beyond the reader's |
-| EtM / MtE / E&M ordering | Three compositions distinguished only in prose | Three-row sequence comparison showing where verification sits relative to unpadding | Optional extension |
-
-## Applicable durable content decisions
-
-| Decision ID | Affected concept | Disposition | Current evidence and rationale |
-| --- | --- | --- | --- |
-| CD-0001 | Original taxonomy record | **Superseded** (by CD-0002) | Preserved unedited as history. Its dead IACR URL and Vaudenay/CBC-R attribution remain in the record deliberately; neither appears in live content. |
-| CD-0002 | Taxonomy; source attributions; demo verification | **Reaffirmed** | Verified in current source: CBC-R credited to Rizzo & Duong, BEAST cited as a Netifera white paper via a resolving archived URL, SP 800-38A quoted as "must". All ten vectors/demos exercised. |
-| CD-0003 | CBC-R IV prerequisite | **Reaffirmed** | Present in prose callout, README, SVG, and demo verdict. |
-| CD-0004 | Block-wide padding-oracle validity | **Reaffirmed** | Present in prose callout and SVG; matches the code guard; query bound re-measured. |
-| CD-0005 | SP 800-38D IV ceilings | **Reaffirmed** | Both ceilings present with section numbers and quoted text. |
-| CD-0006 | Diagram color convention | **Reaffirmed** | Convention documented in the generator docstring and applied in all six SVGs. |
-| CD-0007 | EtM vs MtE coverage | **Reaffirmed** | Subsection present; RFC 7366 resolves. |
-| CD-0008 | textContent-only demo output | **Reaffirmed** | `grep innerHTML docs/js/ui.mjs` returns only the two comment lines that state the rule. |
-
-No decision was reopened or reversed at this baseline.
+Color convention (CD-0005) holds; theme-aware neutral-box rule now enforced by a generator guard (CD-0009).
 
 ## Mechanical and rendered checks
 
 | Check | Scope | Result | What this does not prove |
 | --- | --- | --- | --- |
-| `node --test` | all modules | 10/10 | Coverage of the paths tested, not of paths no test names |
-| `npm run lint` | all `.mjs` | Clean | Nothing about factual accuracy or runtime behavior |
-| HTML nesting parse | `docs/index.html` | Clean after CR-01 | Element nesting only; not CSS, accessibility, or semantics |
-| Live browser run | all 5 demos | All correct — V2 exact in 8094 queries, V3 exact 25/25, V1/V4/GCM exact | Chromium at dark scheme, desktop width only |
-| XSS probe | `bf-user`, `frg-payload` | 0 injected nodes, no execution, payload literal | The sinks reachable from demo inputs, not a full audit |
-| Padding-oracle measurement | 60 randomized runs, page default secret, with `onProgress` | 60/60 exact; mean 8192, median 8227, min 6848, max 10699; 128.0 queries/byte | Not a worst-case proof; evidence for the stated average |
-| BEAST candidate derivation | `BEAST_CANDIDATES` | 256 unique values, 95 printable | — |
-| Generator idempotence | 6 SVGs | Two runs, identical hashes, no diff | That the figures are conceptually correct — the visual ledger's job |
-| External link check | all URLs in README and page | All resolve (the only non-200 is the `localhost:8000` preview instruction) | That a reachable URL supports the claim beside it |
-| Console on load | `docs/index.html` | No errors | Errors only surfacing under interaction paths not exercised |
-| `verify_content_decisions.py` | register | 8 decisions validated | Structure and references only, not technical correctness |
-| `pre-commit run --all-files` | all staged content | Passed — gitleaks, private key, large files, merge conflicts, EOF, trailing whitespace | That no secret exists, only that none matched a rule |
+| `node --test` | crypto + 4 vectors + GCM | 10/10 pass | Not browser rendering |
+| `npm run lint` (eslint) | repo JS | Clean | Not semantic correctness |
+| Generator regression guard | `box()` in generate_diagrams.py | Fires on the pre-fix fault; passes post-fix | Only this fault class |
+| Generator↔SVG byte-diff | all 6 SVGs | All MATCH after regeneration | Not per-theme legibility |
+| Rendered SVG (in-app browser, dark) | modes, vector1 | Fixed boxes ~13:1 contrast | The 3 unrendered SVGs' dark contrast |
+| External link liveness (curl) | 20 URLs | All 200 | Not content stability |
+| Live demo (browser) | Vector 1 issue→flip | role=USER → role=admin GRANTED | The other 4 demos in-browser (tests cover them) |
+| `verify_content_decisions.py` | register | 9 decisions validated | Structure only, not technical correctness |
 
-## Open required findings
+## Findings (all remediated this cycle)
 
-None.
+### F-1 — Dark-mode contrast defect in `modes-cbc-vs-gcm.svg` — FIXED
+The "Ciphertext C[i]" and "Ciphertext C" boxes hardcoded `fill="#f1f5f9"` with `tc=INK`, giving ~1.1:1 contrast in dark mode (near-white on near-white). Fixed at [generate_diagrams.py:127](../docs/diagrams/generate_diagrams.py) and its sibling by switching to the `NEU_F` sentinel (theme-aware `.neu`). Verified in dark mode: box `#1c2330`, text `#e6edf3`, ~13:1. The fix also removed a leaked `stroke="@neus"` sentinel that had been emitted verbatim into the old SVG. **Guard added:** `box()` now asserts no hardcoded hex fill is paired with `INK`/`MUTED` text; the guard was confirmed to fire on the original fault.
 
-The three findings raised by this closure review against `83fbcb7` are resolved in `b40b896`:
+### F-2 — Thesis overclaim: "AES-CBC mode is unsafe" — FIXED
+The title/H1/lede/what-to-remember asserted the mode is categorically unsafe, but the evidence supports only "CBC provides confidentiality, not integrity, and requires unpredictable IVs." "X is unsafe" and "X does not by itself provide Y" need different evidence (this is the failure the initial pass marked clean and should not have). Reframed across index.html, README, DISCLAIMER, and package.json: title now "Unauthenticated AES-CBC is unsafe"; the lede states CBC is not authenticated encryption, that unauthenticated/misused CBC is exploitable, and that CBC with Encrypt-then-MAC and unpredictable IVs is a sound construction, with AEAD the modern default. Recorded as CD-0008.
 
-| ID | Location | Finding | Resolution |
-| --- | --- | --- | --- |
-| CR-01 | `index.html` Vector 4 | `<ol>` opened inside an open `<p>`, which HTML does not permit — the parser auto-closed the paragraph and orphaned the closing tag, leaving the sentence after the list outside any paragraph. **Pre-existing at `16ade34`; missed by the previous review's residual pass.** | List and both paragraphs made siblings; verified by parsing the document and by walking the rendered DOM |
-| CR-02 | `index.html` Vector 3 demo hint | "Each byte costs up to 95 chosen-plaintext requests" — 95 is the printable-ASCII case; the candidate list covers all 256 values and the field is user-editable. **Introduced by the remediation at `131a349`.** | Restated with both figures plus the per-byte capture request |
-| CR-03 | `index.html` Vector 2 demo hint | A "30–60 seconds" runtime taken from a sandboxed browser subject to background-timer throttling — a figure this review could not support. **Introduced by the remediation at `131a349`.** | Replaced with the measured invariant (≈128 calls/byte, on the order of 8,000 decryptions) and a pointer to the exact count the demo prints |
+### O-1 — Light-box inconsistency in `vector1-bit-flipping.svg` — FIXED
+"P'[1] = Scrambled garbage" hardcoded the same light fill, rendering a light box in a dark diagram. Switched to `NEU_F`/`NEU_S` with muted text; now theme-consistent. Covered by the same CD-0009 guard.
+
+### O-2 — IND-CPA undefined — FIXED
+Added a one-clause gloss at Root Cause 3 (indistinguishability under chosen-plaintext attack) and noted that predictable-IV is a usage requirement, not a mode defect, and breaks confidentiality even for authenticated ciphertext.
+
+### O-3 — Block-index notation (1- vs 0-indexed) — FIXED
+Added an indexing note in Vector 1: the relations are 1-indexed with `C₀ = IV`, while the demo/diagram number blocks from 0 with the IV separate (payload in block 2 / bytes 32–47; flipped block `C[1]` / bytes 16–31).
+
+### O-4 — Sweet32 scope — FIXED
+The Real-world evidence row now states AES-CBC's 128-bit block is not subject to the Sweet32 birthday bound and that the row is a structural CBC-mode limitation on 64-bit-block ciphers, not an AES-CBC attack.
 
 ## Optional coverage
 
-All nine optional gaps from the `16ade34` review are addressed. Two representation opportunities remain open by choice and are recorded above as optional extensions; neither is a correctness defect, and the prose stands without them.
+None outstanding. All optional items O-1…O-4 were addressed this cycle.
+
+## Findings mechanized into guards
+
+- **F-1/O-1 → generator assertion** in `box()` (`generate_diagrams.py`): rejects any hardcoded hex fill paired with theme-variable (`INK`/`MUTED`) text. Verified: fires on the pre-fix fault, passes after the fix. This is the durable guard for the dark-mode-contrast class (CD-0009).
+- **F-2 → grep discipline** documented in CD-0008's verification methods (no bare "CBC (mode) is unsafe" may remain); not yet a CI step. Could be mechanized as a lint/CI grep — recorded here as a not-yet-automated guard.
+- **O-4 / numeric-scope and O-3 / notation** are prose clarifications not amenable to a cheap deterministic guard; recorded as such.
 
 ## Limitations and uncertainty
 
-- **Vaudenay EUROCRYPT 2002 full text is paywalled** (Springer returns a 303 to an IdP flow). The CBC-R attribution rests on the Rizzo & Duong WOOT 2010 primary text, which is decisive standing alone. The negative claim — that Vaudenay 2002 does not contain CBC-R — is supported by that paper's statement, not by reading Vaudenay directly.
-- **Browser coverage is partial.** Rendered checks ran in the in-app Chromium at the dark color scheme and desktop width. Safari, Firefox, light scheme, and mobile widths were not exercised.
-- **GitHub-side rendering unverified.** Whether `taxonomy.svg`'s `prefers-color-scheme` block survives GitHub's image proxy in the rendered README was not checked in the GitHub UI.
-- **Browser timing is environmental.** The padding-oracle demo stalls when the browser pane is hidden (background-timer throttling) and resumes when fronted. This is why CR-03 exists: no wall-clock figure is asserted on the page. Correctness and cost were established in Node instead, over 60 runs.
-- **Worst-case query bounds are not proven,** only bounded by measurement across 60 runs plus the structure of the false-positive recheck.
-- **Passes were not all repeated at `b40b896`.** `b40b896` changes three prose regions of `docs/index.html` and nothing else. Factual correctness on those regions, cross-format, and every mechanical check were repeated; the visual, decision-reconciliation, and completeness passes were not, because no artifact in their scope changed.
-- **Merged and deployed.** The reviewed branch was squash-merged as `e5c013a` and GitHub Pages deployed from it, so the live site now serves the reviewed content. Because the merge was a squash, the five original commits are absent from `main`; the content fingerprint, not the commit id, is what ties this record to what shipped.
+- Rendered-output inspection in dark mode covered `taxonomy`, `modes-cbc-vs-gcm` (post-fix), and `vector1-bit-flipping` (post-fix). `vector2`, `vector3`, `vector4` were verified by generator byte-correspondence and by the new guard (which proves no hardcoded-light-fill + theme-text pairing exists anywhere in the generator), not by an individual dark render.
+- Only Vector 1 was driven live in a browser; Vectors 2–4 and the GCM defense rest on the Node suite (which covers the onProgress UI path and multi-block secrets).
+- Primary-source checks used current published NIST/USENIX/IETF documents; `evidence-authority` carries a 90-day decay and `factual-correctness` a 180-day decay from 2026-08-24.
+- The F-2 title wording ("Unauthenticated AES-CBC is unsafe") is one defensible scoping of the thesis; the maintainer may prefer a different headline (e.g. "AES-CBC is not authenticated encryption"). The substance — not claiming the mode is categorically broken — is what CD-0008 fixes.
+
+## Applicable durable content decisions
+
+| Decision ID | Disposition | Note |
+| --- | --- | --- |
+| CD-0001…CD-0007 | Recorded / reaffirmed | Settled positions, verified against current evidence this cycle |
+| CD-0008 | New | Thesis scoped to unauthenticated/misused CBC (F-2) |
+| CD-0009 | New | Theme-aware neutral boxes + generator guard (F-1/O-1) |
 
 ## Closure attestation
 
 - [x] Every in-scope artifact was inventoried and read in full.
 - [x] Every material claim was entered in the ledger and dispositioned.
-- [x] Every topic received a completeness classification for every category.
+- [x] Every topic received a completeness classification.
 - [x] Every mandatory pass was completed separately.
-- [x] Current primary sources were used for standards-sensitive and time-sensitive claims.
-- [x] Prose, metadata, diagrams, captions, alt text, examples, summaries, navigation, and generators were reconciled.
-- [x] Every visual was reviewed as its own artifact for independent correctness, detached self-sufficiency, generator provenance, and standalone defensibility, separately from the cross-format pass.
-- [x] Applicable mechanical and rendered checks passed or their limitations are recorded.
-- [x] Applicable durable content decisions were reconciled after the independent claim review; none required reversal at this baseline.
-- [x] Residual exhaustion was completed after findings were assembled, at both `83fbcb7` and `b40b896`.
-- [x] The baseline change is documented, along with which passes were repeated and why the others were not.
-- [x] Required findings, optional coverage, and limitations are separated.
+- [x] Current primary sources were used for standards-sensitive claims.
+- [x] Prose, metadata, diagrams, captions, alt text, summaries, navigation, and generators were reconciled after the reframe.
+- [x] Every visual was reviewed as its own artifact; the two edited visuals were re-rendered in dark mode.
+- [x] Applicable mechanical and rendered checks passed; the new guard fires on the original fault.
+- [x] Applicable durable content decisions were reconciled; CD-0008 and CD-0009 added.
+- [x] Residual exhaustion was completed after fixes.
+- [x] Implementation and review were run as separate phases; the baseline was re-frozen after edits and affected passes repeated.
+- [x] Findings, optional coverage, and limitations are separated; all findings this cycle are remediated.
 
-Closure conclusion: **Commit `b40b896` (fingerprint `8963e13d…`) carries no open required findings.** Every claim in the material-claim ledger is closed against a primary source or a direct measurement, every completeness category is covered or classified, all eight durable decisions are reaffirmed, and every mechanical check passes. The closure review found three defects in the remediated state — one pre-existing and missed by the previous pass, two introduced by the remediation itself — which is the expected yield of reviewing a changed state rather than trusting the change. Closure applies to this branch only; the deployed site still serves `16ade34` until the branch is merged. The limitations above are real and undischarged: they bound what this record claims, and they do not expire.
+Closure conclusion: All findings surfaced this cycle — F-1 (dark-mode contrast), F-2 (thesis overclaim), and O-1…O-4 — were fixed and re-verified against a re-frozen baseline. The content is technically accurate with citations verified verbatim, the thesis is now scoped to what the evidence supports (unauthenticated/misused CBC), the two edited diagrams are legible in both themes with a regression guard in place, tests pass 10/10, and the decision register (9 records) validates. The fixes are uncommitted in the working tree.
