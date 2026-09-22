@@ -50,15 +50,15 @@
   <p>CBC remains an approved confidentiality mode. <a href="https://csrc.nist.gov/pubs/ir/8459/final">NIST IR 8459</a> recommended not yet deprecating the SP 800-38A modes other than ECB, while also recognizing that confidentiality-only modes are unsafe when an adversary can modify ciphertext. Approval therefore does not turn CBC into an authenticated construction.</p>
   <p>The practical boundary is direct. Every IV must be unpredictable, and any ciphertext that can be modified in storage or transit must be authenticated before decryption, unpadding, parsing, or plaintext release. New systems normally meet that requirement with an AEAD such as AES-GCM. A constrained legacy CBC format can use Encrypt-then-MAC with independent keys.</p>
 
-  <h2 id="attacks">Three root causes, four attack vectors</h2>
-  <p>Unauthenticated CBC's operational failures stem from three distinct root causes — two follow from its lack of integrity, and one is the strict requirement that every IV be unpredictable — creating four primary attack vectors:</p>
+  <h2 id="attacks">Three failure conditions, four attack vectors</h2>
+  <p>Four attack vectors emerge from three conditions: unauthenticated ciphertext is malleable, decryption can expose distinguishable padding feedback, and CBC requires every IV to be unpredictable. Padding feedback depends on unauthenticated processing, while IV predictability is a separate confidentiality failure:</p>
   <ol>
     <li><strong>No ciphertext integrity / Malleability:</strong> Because <code>Pᵢ = D_K(Cᵢ) ⊕ Cᵢ₋₁</code>, an attacker can modify ciphertext bytes to inject chosen changes into decrypted plaintext without triggering decryption errors.</li>
     <li><strong>Padding oracle side-channel feedback:</strong> Because CBC does not authenticate ciphertext before decryption, implementations must decrypt and unpad data (e.g. PKCS#7). Revealing whether padding is valid creates a 1-bit side channel that recovers complete plaintext.</li>
     <li><strong>Predictable or chained IVs:</strong> CBC requires an unpredictable IV for every message. Reuse or predictable chaining lets an adversary test chosen-plaintext hypotheses and breaks confidentiality even when the ciphertext is authenticated.</li>
   </ol>
   <figure>
-    <img src="diagrams/taxonomy.svg" alt="Taxonomy tree showing CBC mode's three root causes (No integrity, Padding oracle, Predictable IV) mapping to Vector 1 Bit-flipping, Vector 2 Padding oracle decryption, Vector 3 Predictable IV BEAST attack, and Vector 4 CBC-R forgery.">
+    <img src="diagrams/taxonomy.svg" alt="Taxonomy tree showing CBC mode's three failure conditions (No integrity, Padding feedback, Predictable IV) mapping to Vector 1 Bit-flipping, Vector 2 Padding oracle decryption, Vector 3 Predictable IV BEAST attack, and Vector 4 CBC-R forgery.">
     <figcaption>The four demonstrations separate CBC's malleability and padding feedback from its independent requirement for unpredictable IVs.</figcaption>
   </figure>
 
@@ -85,7 +85,7 @@
       <button type="button" id="bf-flip" class="secondary" disabled>2. Flip Bits to Escalate to Admin</button>
     </div>
     <div id="bf-out" class="mt-14"></div>
-    <div class="verdict" id="bf-verdict"></div>
+    <div class="verdict" id="bf-verdict" role="status" aria-live="polite" aria-atomic="true"></div>
   </div>
 
   <h2>Padding feedback can reveal plaintext</h2>
@@ -110,40 +110,15 @@
     <p class="hint" id="orc-limit">Up to 80 UTF-8 bytes. The limit keeps the number of oracle operations bounded.</p>
     <div class="row">
       <button type="button" id="orc-run">Run Padding Oracle Attack</button>
-      <span class="hint" id="orc-status"></span>
+      <span class="hint" id="orc-status" role="status" aria-live="polite"></span>
     </div>
     <span class="line-label">Plaintext recovered byte-by-byte</span>
     <div class="recovered-box" id="orc-recovered"><span class="cursor">_</span></div>
-    <div class="verdict" id="orc-verdict"></div>
-  </div>
-
-  <h2>A predictable IV enables chosen-plaintext comparison</h2>
-  <p>NIST SP 800-38A §6.2 states that for CBC mode the IV "need not be secret, but it <strong>must be unpredictable</strong>"; §5.3 and Appendix C repeat the requirement. (The document states its requirements with "must" rather than the RFC 2119 keyword "shall".) In SSL 3.0 and TLS 1.0 (<a href="https://datatracker.ietf.org/doc/html/rfc2246">RFC 2246</a>), implementations chained IVs across records: the IV for record <code>N+1</code> was set to the last ciphertext block of record <code>N</code> (<code>IV_{N+1} = C_{last}</code>).</p>
-  <p>As demonstrated by <a href="https://web.archive.org/web/2013/http://netifera.com/research/beast/beast_DRAFT_0621.pdf">Thai Duong &amp; Juliano Rizzo (2011)</a> in the <strong>BEAST attack</strong> (<a href="https://www.cve.org/CVERecord?id=CVE-2011-3389">CVE-2011-3389</a>), a chosen-plaintext adversary (such as JavaScript running in a browser) who knows the predicted <code>IV_{next}</code> can evaluate guesses against a previously captured target ciphertext block <code>C_{target}</code>. Write <code>B_{target}</code> for the block that entered the cipher immediately before <code>C_{target}</code> — the preceding ciphertext block, or the record's own IV when the target sits first in the record. By submitting crafted plaintext <code>P_{guess} = IV_{next} ⊕ B_{target} ⊕ (Known ∥ Candidate)</code>, the cipher encrypts <code>E_K(P_{guess} ⊕ IV_{next}) = E_K(B_{target} ⊕ (Known ∥ Candidate))</code>. The attacker chooses the request length so the unknown byte lands last in its block, making <code>Known</code> the 15 bytes already recovered. When the candidate is correct, the resulting ciphertext matches <code>C_{target}</code>, breaking IND-CPA security and extracting secret session cookies one byte at a time.</p>
-
-  <figure>
-    <img src="diagrams/vector3-predictable-iv.svg" alt="BEAST attack diagram: the attacker captures a target ciphertext block, then uses the predictable chained IV to submit P_guess = IV_next XOR B_target XOR (Known || Candidate). When the probe ciphertext matches the target block the candidate is the secret byte. Educational simulation of CVE-2011-3389 against a local ChainedIvSession.">
-    <figcaption>A predictable next IV lets the attacker turn each candidate byte into a ciphertext comparison against the captured target block.</figcaption>
-  </figure>
-
-  <div class="demo" id="demo-beast">
-    <div class="demo-head">Live in your browser</div>
-    <h3>Recover a session value from a chained IV</h3>
-    <p class="hint">Simulates a TLS 1.0 connection where each request's IV is predictable (chained from the previous record's last block). Each byte costs one capture request plus up to 95 probe requests while the secret is printable ASCII, and up to 256 otherwise — so a full session cookie takes tens of seconds, and longer cookies take proportionally longer.</p>
-    <label for="beast-cookie">Secret session cookie held by connection</label>
-    <input type="text" id="beast-cookie" value="SESSION=auth_99a8b7c6d5e4" maxlength="32" pattern="[ -~]+" autocomplete="off" spellcheck="false" aria-describedby="beast-limit">
-    <p class="hint" id="beast-limit">Printable ASCII only, up to 32 bytes. The historical attack simulation is byte-oriented.</p>
-    <div class="row">
-      <button type="button" id="beast-run">Execute BEAST Attack</button>
-      <span class="hint" id="beast-status"></span>
-    </div>
-    <span class="line-label">Extracted secret</span>
-    <div class="recovered-box" id="beast-recovered"><span class="cursor">_</span></div>
-    <div class="verdict" id="beast-verdict"></div>
+    <div class="verdict" id="orc-verdict" role="status" aria-live="polite" aria-atomic="true"></div>
   </div>
 
   <h2>A padding oracle can also forge ciphertext</h2>
-  <p>Padding oracles do not merely enable decryption — they enable <strong>arbitrary ciphertext forgery</strong>. Vaudenay's 2002 paper established padding-oracle <em>decryption</em>; the forgery technique, named <strong>CBC-R</strong>, was introduced eight years later by <a href="https://www.usenix.org/legacy/event/woot10/tech/full_papers/Rizzo.pdf">Rizzo &amp; Duong at USENIX WOOT 2010</a>, who describe it as their own contribution ("We call it CBC-R encryption"). An attacker with access only to a decryption verification oracle can generate valid ciphertext for any chosen plaintext message without possessing the secret key and without calling an encryption function.</p>
+  <p>Padding oracles do not merely enable decryption — they enable <strong>arbitrary ciphertext forgery</strong>. Vaudenay's 2002 paper established padding-oracle <em>decryption</em>; the forgery technique, named <strong>CBC-R</strong>, was introduced eight years later by <a href="https://www.usenix.org/legacy/event/woot10/tech/full_papers/Rizzo.pdf">Rizzo &amp; Duong at USENIX WOOT 2010</a>, who describe it as their own contribution ("We call it CBC-R encryption"). An attacker with access only to a decryption verification oracle can generate valid ciphertext for any chosen plaintext message without possessing the secret key or calling an encryption oracle.</p>
   <p>The attacker works backwards from the last block <code>Pₙ</code>:</p>
   <ol>
     <li>Pick an arbitrary random block for <code>Cₙ</code>.</li>
@@ -173,10 +148,35 @@
     <p class="hint" id="frg-limit">Printable ASCII only, up to 80 bytes. The limit bounds the oracle work.</p>
     <div class="row">
       <button type="button" id="frg-run">Synthesize Forged Ciphertext</button>
-      <span class="hint" id="frg-status"></span>
+      <span class="hint" id="frg-status" role="status" aria-live="polite"></span>
     </div>
     <div id="frg-out" class="mt-14"></div>
-    <div class="verdict" id="frg-verdict"></div>
+    <div class="verdict" id="frg-verdict" role="status" aria-live="polite" aria-atomic="true"></div>
+  </div>
+
+  <h2>A predictable IV enables chosen-plaintext comparison</h2>
+  <p>NIST SP 800-38A §6.2 states that for CBC mode the IV "need not be secret, but it <strong>must be unpredictable</strong>"; §5.3 and Appendix C repeat the requirement. (The document states its requirements with "must" rather than the RFC 2119 keyword "shall".) In SSL 3.0 and TLS 1.0 (<a href="https://datatracker.ietf.org/doc/html/rfc2246">RFC 2246</a>), implementations chained IVs across records: the IV for record <code>N+1</code> was set to the last ciphertext block of record <code>N</code> (<code>IV_{N+1} = C_{last}</code>).</p>
+  <p>As demonstrated by <a href="https://web.archive.org/web/2013/http://netifera.com/research/beast/beast_DRAFT_0621.pdf">Thai Duong &amp; Juliano Rizzo (2011)</a> in the <strong>BEAST attack</strong> (<a href="https://www.cve.org/CVERecord?id=CVE-2011-3389">CVE-2011-3389</a>), a chosen-plaintext adversary (such as JavaScript running in a browser) who knows the predicted <code>IV_{next}</code> can evaluate guesses against a previously captured target ciphertext block <code>C_{target}</code>. Write <code>B_{target}</code> for the block that entered the cipher immediately before <code>C_{target}</code> — the preceding ciphertext block, or the record's own IV when the target sits first in the record. By submitting crafted plaintext <code>P_{guess} = IV_{next} ⊕ B_{target} ⊕ (Known ∥ Candidate)</code>, the cipher encrypts <code>E_K(P_{guess} ⊕ IV_{next}) = E_K(B_{target} ⊕ (Known ∥ Candidate))</code>. The attacker chooses the request length so the unknown byte lands last in its block, making <code>Known</code> the 15 bytes already recovered. When the candidate is correct, the resulting ciphertext matches <code>C_{target}</code>, breaking IND-CPA security and extracting secret session cookies one byte at a time.</p>
+
+  <figure>
+    <img src="diagrams/vector3-predictable-iv.svg" alt="BEAST attack diagram: the attacker captures a target ciphertext block, then uses the predictable chained IV to submit P_guess = IV_next XOR B_target XOR (Known || Candidate). When the probe ciphertext matches the target block the candidate is the secret byte. Educational simulation of CVE-2011-3389 against a local ChainedIvSession.">
+    <figcaption>A predictable next IV lets the attacker turn each candidate byte into a ciphertext comparison against the captured target block.</figcaption>
+  </figure>
+
+  <div class="demo" id="demo-beast">
+    <div class="demo-head">Live in your browser</div>
+    <h3>Recover a session value from a chained IV</h3>
+    <p class="hint">Simulates a TLS 1.0 connection where each request's IV is predictable (chained from the previous record's last block). Each byte costs one capture request plus up to 95 probe requests while the secret is printable ASCII, and up to 256 otherwise — so a full session cookie takes tens of seconds, and longer cookies take proportionally longer.</p>
+    <label for="beast-cookie">Secret session cookie held by connection</label>
+    <input type="text" id="beast-cookie" value="SESSION=auth_99a8b7c6d5e4" maxlength="32" pattern="[ -~]+" autocomplete="off" spellcheck="false" aria-describedby="beast-limit">
+    <p class="hint" id="beast-limit">Printable ASCII only, up to 32 bytes. The historical attack simulation is byte-oriented.</p>
+    <div class="row">
+      <button type="button" id="beast-run">Execute BEAST Attack</button>
+      <span class="hint" id="beast-status" role="status" aria-live="polite"></span>
+    </div>
+    <span class="line-label">Extracted secret</span>
+    <div class="recovered-box" id="beast-recovered"><span class="cursor">_</span></div>
+    <div class="verdict" id="beast-verdict" role="status" aria-live="polite" aria-atomic="true"></div>
   </div>
 
   <h2>How to find the same weakness</h2>
@@ -237,7 +237,7 @@
       <button type="button" id="gcm-run">Encrypt with GCM &amp; Tamper Ciphertext</button>
     </div>
     <div id="gcm-out" class="mt-14"></div>
-    <div class="verdict" id="gcm-verdict"></div>
+    <div class="verdict" id="gcm-verdict" role="status" aria-live="polite" aria-atomic="true"></div>
   </div>
 
   <h2>Authentication does not remove operating limits</h2>

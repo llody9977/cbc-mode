@@ -9,23 +9,98 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+permissions: {}
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
+  verify:
+    name: Verify release checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read # Query the required check runs for the exact release revision.
+    outputs:
+      sha: ${{ steps.revision.outputs.sha }}
+    steps:
+      - id: revision
+        name: Select the verified revision
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          sha="$RELEASE_SHA"
+          if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid revision: $sha" >&2
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - name: Require all release checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ steps.revision.outputs.sha }}
+        run: |
+          required=(
+            "test"
+            "lint"
+            "generated-diagrams"
+            "gitleaks"
+            "Analyze (javascript-typescript)"
+          )
+
+          for attempt in {1..30}; do
+            checks="$(gh api "repos/$REPOSITORY/commits/$REVISION/check-runs?per_page=100")"
+            waiting=0
+
+            for name in "${required[@]}"; do
+              state="$(jq -r --arg name "$name" '
+                [.check_runs[] | select(.name == $name)]
+                | sort_by(.started_at)
+                | last
+                | if . == null then "missing" else "\(.status):\(.conclusion // "pending")" end
+              ' <<< "$checks")"
+
+              case "$state" in
+                completed:success) ;;
+                completed:*)
+                  echo "Required check failed for $REVISION: $name ($state)" >&2
+                  exit 1
+                  ;;
+                *)
+                  echo "Waiting for required check: $name ($state)"
+                  waiting=1
+                  ;;
+              esac
+            done
+
+            if [ "$waiting" -eq 0 ]; then
+              echo "All release checks passed for $REVISION"
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "Timed out waiting for release checks on $REVISION" >&2
+          exit 1
+
   deploy:
+    name: deploy
+    needs: verify
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write # Publish the Pages artifact.
+      id-token: write # Obtain GitHub's deployment identity token.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          persist-credentials: false
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:

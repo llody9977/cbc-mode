@@ -14,12 +14,12 @@ CBC encrypts data, but it does not prove that the ciphertext is authentic. Witho
 The site turns each weakness into an interactive demonstration you can drive. The cryptography is **real AES** executed via the standard Web Crypto API locally in your browser — zero server calls.
 
 - **Bit-flipping malleability** — modify ciphertext bytes to inject chosen changes into decrypted plaintext (e.g. forging an admin role) without triggering decryption errors.
-- **Padding oracle decryption** — recover complete plaintext byte-by-byte in roughly 256 queries per byte via a padding validation leak (the Vaudenay 2002 / POODLE mechanism).
+- **Padding oracle decryption** — recover complete plaintext byte-by-byte through a PKCS#7 validation leak, averaging roughly 128 oracle queries per byte and requiring up to 256 plus disambiguation checks (Vaudenay 2002).
 - **Predictable IV attack** — exploit chained or predictable IVs in TLS 1.0 connections to recover secret session cookies via chosen plaintext (the BEAST attack / CVE-2011-3389).
-- **Ciphertext forgery (CBC-R)** — synthesize valid ciphertext for arbitrary chosen plaintext using only a decryption padding oracle — zero key access and zero encryption calls. Requires the endpoint to accept an attacker-supplied IV; otherwise the first block decrypts to garbage (Rizzo & Duong, WOOT 2010).
+- **Ciphertext forgery (CBC-R)** — synthesize valid ciphertext for arbitrary chosen plaintext using only a decryption padding oracle — the attacker has neither the key nor an encryption oracle. Requires the endpoint to accept an attacker-supplied IV; otherwise the first block decrypts to garbage (Rizzo & Duong, WOOT 2010).
 - **The fix** — the same token under AES-GCM: flip one bit and watch the authentication tag immediately reject the tampered ciphertext before any plaintext is released.
 
-![CBC's three root causes and four attack vectors](docs/diagrams/taxonomy.svg)
+![CBC's three failure conditions and four attack vectors](docs/diagrams/taxonomy.svg)
 
 ## Structure
 
@@ -30,8 +30,9 @@ The site turns each weakness into an interactive demonstration you can drive. Th
 ## Develop
 
 ```bash
-npm ci            # install eslint (tests need no dependencies)
-npm test          # node --test — verifies every vector against real AES
+npm ci            # install the pinned development dependencies
+npx playwright install chromium  # one-time browser runtime for the UI regression test
+npm test          # node --test — verifies every vector and the browser UI against real AES
 npm run lint      # eslint
 npm run validate:html
 

@@ -12,6 +12,18 @@ import {
   padPkcs7, unpadPkcs7, isValidPkcs7, utf8, utf8Decode, latin1Encode, latin1Decode,
 } from "./crypto.mjs";
 
+function requireBlock(value, label) {
+  if (!(value instanceof Uint8Array) || value.length !== BLOCK_SIZE) {
+    throw new RangeError(`${label} must be a ${BLOCK_SIZE}-byte Uint8Array`);
+  }
+}
+
+function requireCiphertext(value) {
+  if (!(value instanceof Uint8Array) || value.length === 0 || value.length % BLOCK_SIZE !== 0) {
+    throw new RangeError("ciphertext must be a non-empty Uint8Array aligned to the AES block size");
+  }
+}
+
 // ===========================================================================
 // VECTOR 1: CBC Bit-Flipping / Ciphertext Malleability
 //
@@ -53,6 +65,18 @@ export class ProfileCookieService {
 // Bit-flipping attack function:
 // Targets a specific substring in block i by flipping bits in block i-1 (or IV for block 0)
 export function flipCbcBits(iv, ciphertext, targetBlockIndex, byteOffsetInBlock, delta) {
+  requireBlock(iv, "IV");
+  requireCiphertext(ciphertext);
+  const blockCount = ciphertext.length / BLOCK_SIZE;
+  if (!Number.isInteger(targetBlockIndex) || targetBlockIndex < 0 || targetBlockIndex >= blockCount) {
+    throw new RangeError("target block index is outside the ciphertext");
+  }
+  if (!Number.isInteger(byteOffsetInBlock) || byteOffsetInBlock < 0 || byteOffsetInBlock >= BLOCK_SIZE) {
+    throw new RangeError("byte offset must be an integer from 0 to 15");
+  }
+  if (!Number.isInteger(delta) || delta < 0 || delta > 0xff) {
+    throw new RangeError("XOR delta must be an integer from 0 to 255");
+  }
   const modIv = new Uint8Array(iv);
   const modCt = new Uint8Array(ciphertext);
 
@@ -129,6 +153,8 @@ export function makePaddingOracle(key = randomKey()) {
 
 // Recovers intermediate state I = D_K(targetBlock) for a single 16-byte block
 export async function recoverIntermediateBlock(oracle, targetBlock, { onByteRecovered } = {}) {
+  if (typeof oracle !== "function") throw new TypeError("oracle must be a function");
+  requireBlock(targetBlock, "target block");
   const intermediate = new Uint8Array(BLOCK_SIZE);
   const probe = new Uint8Array(BLOCK_SIZE);
 
@@ -184,6 +210,11 @@ export async function recoverIntermediateBlock(oracle, targetBlock, { onByteReco
 
 // Decrypts multi-block ciphertext using the padding oracle
 export async function recoverPlaintextWithOracle(oracle, iv, ciphertext, { onProgress } = {}) {
+  if (typeof oracle !== "function" || typeof oracle.getQueryCount !== "function") {
+    throw new TypeError("oracle must expose a callable getQueryCount method");
+  }
+  requireBlock(iv, "IV");
+  requireCiphertext(ciphertext);
   const blocks = splitBlocks(ciphertext);
   const recoveredBlocks = [];
   let prevBlock = iv;
@@ -266,6 +297,12 @@ const BEAST_CANDIDATES = [
 // at all, only recovered secret bytes, so the known context must be read from the combined
 // message prefix rather than from the filler.
 export async function recoverSecretViaBeast(session, secretLength, { onStep } = {}) {
+  if (!session || typeof session.sendRequest !== "function" || typeof session.getNextIv !== "function") {
+    throw new TypeError("session must provide sendRequest and getNextIv methods");
+  }
+  if (!Number.isInteger(secretLength) || secretLength < 1 || secretLength > 4096) {
+    throw new RangeError("secret length must be an integer from 1 to 4096 bytes");
+  }
   const recovered = [];
 
   for (let i = 0; i < secretLength; i++) {
@@ -337,7 +374,11 @@ export async function recoverSecretViaBeast(session, secretLength, { onStep } = 
 // ===========================================================================
 
 export async function forgeCiphertextWithOracle(oracle, chosenPlaintext, { onBlockForged } = {}) {
+  if (typeof oracle !== "function") throw new TypeError("oracle must be a function");
   const ptBytes = typeof chosenPlaintext === "string" ? latin1Encode(chosenPlaintext) : chosenPlaintext;
+  if (!(ptBytes instanceof Uint8Array) || ptBytes.length === 0 || ptBytes.length > 4096) {
+    throw new RangeError("chosen plaintext must contain from 1 to 4096 bytes");
+  }
   const paddedPt = padPkcs7(ptBytes);
   const ptBlocks = splitBlocks(paddedPt);
   const forgedCipherBlocks = new Array(ptBlocks.length);
