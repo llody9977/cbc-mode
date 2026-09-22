@@ -19,5 +19,5 @@ export default [
       "no-undef": "error",
     },
   },
-  { ignores: ["node_modules/", "docs/diagrams/", "reviews/", "scripts/"] },
+  { ignores: ["node_modules/", "docs/diagrams/"] },
 ];

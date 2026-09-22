@@ -65,24 +65,42 @@ export function flipCbcBits(iv, ciphertext, targetBlockIndex, byteOffsetInBlock,
   return { iv: modIv, ciphertext: modCt };
 }
 
-// High-level automated forge for Vector 1:
-export async function forgeAdminViaBitFlip(service) {
-  // Prefix is 32 bytes (blocks 0 and 1).
-  // Our payload starts at index 0 of block 2.
-  // We supply ":role<admin"
-  // ':' (0x3A) XOR ';' (0x3B) = 0x01 (offset 0 in block 2)
-  // '<' (0x3C) XOR '=' (0x3D) = 0x01 (offset 5 in block 2)
+// High-level automated forge for Vector 1. The attack mutates the exact token
+// supplied by the caller; it never issues a hidden replacement token.
+export function forgeAdminViaBitFlip(token, knownUserData) {
   const placeholder = ":role<admin";
-  const { iv, ciphertext } = await service.issueToken(placeholder);
+  const sanitized = String(knownUserData).replace(/[;=]/g, "");
+  if (!sanitized.startsWith(placeholder)) {
+    throw new Error(`Known input must start with ${placeholder} before it can be changed to ;role=admin`);
+  }
 
-  const deltaColonToSemi = ":".charCodeAt(0) ^ ";".charCodeAt(0);
-  const deltaLessToEqual = "<".charCodeAt(0) ^ "=".charCodeAt(0);
+  // Prefix "comment1=preview;userdata_input=" is 32 bytes. Locate each
+  // target byte rather than assuming the placeholder starts on a block edge.
+  const profilePrefixLength = 32;
+  const replacements = [
+    { offset: 0, from: ":", to: ";" },
+    { offset: 5, from: "<", to: "=" },
+  ];
+  let forged = {
+    iv: new Uint8Array(token.iv),
+    ciphertext: new Uint8Array(token.ciphertext),
+  };
 
-  // Flip in block 1 to mutate block 2
-  const flip1 = flipCbcBits(iv, ciphertext, 2, 0, deltaColonToSemi);
-  const flip2 = flipCbcBits(flip1.iv, flip1.ciphertext, 2, 5, deltaLessToEqual);
+  for (const replacement of replacements) {
+    const absoluteOffset = profilePrefixLength + replacement.offset;
+    const targetBlockIndex = Math.floor(absoluteOffset / BLOCK_SIZE);
+    const byteOffsetInBlock = absoluteOffset % BLOCK_SIZE;
+    const delta = replacement.from.charCodeAt(0) ^ replacement.to.charCodeAt(0);
+    forged = flipCbcBits(
+      forged.iv,
+      forged.ciphertext,
+      targetBlockIndex,
+      byteOffsetInBlock,
+      delta,
+    );
+  }
 
-  return flip2;
+  return forged;
 }
 
 // ===========================================================================

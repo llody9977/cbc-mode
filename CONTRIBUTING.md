@@ -13,12 +13,11 @@ Thanks for your interest in cbc-mode.
 1. Fork and branch from `main` (`feature/short-description` or `fix/short-description`).
 2. Keep the change focused; one logical change per pull request.
 3. Add or update tests, and make sure the existing suite and linters pass locally (`npm test` and `npm run lint`).
-4. Run the project's pre-check-in review before opening the PR.
+4. Review the change for correctness and security before opening the PR.
 5. Open a pull request against `main` and fill in the PR template.
 
 ## Commit and PR conventions
 
 - Write clear, imperative commit subjects ("Add X", "Fix Y"), with a body explaining *why* when it is not obvious.
-- Do not add AI attribution anywhere: no `Co-Authored-By: Claude` trailer, no `Generated with ...` footer, and no equivalent marker in a commit message, PR title or body, comment, tag, or release note.
 - Keep pull requests small enough to review in one sitting.
 - CI and code scanning must pass before merge; the default branch is protected.

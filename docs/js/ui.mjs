@@ -22,6 +22,8 @@ import {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+class UserInputError extends Error {}
+
 // ---- safe DOM helpers ----
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -32,8 +34,7 @@ function el(tag, className, text) {
 
 // A labelled result block. `value` is untrusted and lands in textContent.
 function block({ className = "blk", label, value, valueClass = "blk-hex", tag, spaced = false }) {
-  const wrap = el("div", className);
-  if (spaced) wrap.style.marginTop = "8px";
+  const wrap = el("div", `${className}${spaced ? " spaced" : ""}`);
   wrap.append(el("div", "blk-label", label), el("div", valueClass, value));
   if (tag) wrap.append(el("div", "blk-tag", tag));
   return wrap;
@@ -64,9 +65,29 @@ function renderRecovered(box, text) {
 }
 
 function reportFailure(statusEl, verdictDiv, error) {
-  console.error(error);
+  if (!(error instanceof UserInputError)) console.error(error);
   if (statusEl) statusEl.textContent = "Failed.";
   setVerdict(verdictDiv, "bad", "⚠️ ", bold("Demonstration failed: "), String(error && error.message ? error.message : error));
+}
+
+function boundedAsciiValue(input, fallback, label, maxBytes) {
+  const value = input.value || fallback;
+  if (!/^[\x20-\x7e]+$/.test(value)) {
+    throw new UserInputError(`${label} accepts printable ASCII only.`);
+  }
+  if (value.length > maxBytes) {
+    throw new UserInputError(`${label} is limited to ${maxBytes} bytes so the demonstration remains responsive.`);
+  }
+  return value;
+}
+
+function boundedUtf8Value(input, fallback, label, maxBytes) {
+  const value = input.value || fallback;
+  const length = utf8(value).length;
+  if (length > maxBytes) {
+    throw new UserInputError(`${label} is limited to ${maxBytes} UTF-8 bytes so the demonstration remains responsive.`);
+  }
+  return value;
 }
 
 // ===========================================================================
@@ -74,6 +95,8 @@ function reportFailure(statusEl, verdictDiv, error) {
 // ===========================================================================
 function initBitFlipDemo() {
   const service = new ProfileCookieService();
+  let issuedToken = null;
+  let issuedUserData = null;
 
   const btnIssue = document.getElementById("bf-issue");
   const btnFlip = document.getElementById("bf-flip");
@@ -83,12 +106,20 @@ function initBitFlipDemo() {
 
   if (!btnIssue) return;
 
+  userInput.addEventListener("input", () => {
+    issuedToken = null;
+    issuedUserData = null;
+    btnFlip.disabled = true;
+  });
+
   btnIssue.addEventListener("click", async () => {
     btnIssue.disabled = true;
     try {
-      const val = userInput.value || ":role<admin";
+      const val = boundedAsciiValue(userInput, ":role<admin", "User input", 64);
       const token = await service.issueToken(val);
       const check = await service.verifyToken(token.iv, token.ciphertext);
+      issuedToken = token;
+      issuedUserData = val;
 
       replace(outDiv,
         block({ label: "IV (16 bytes hex)", value: toHex(token.iv) }),
@@ -96,10 +127,14 @@ function initBitFlipDemo() {
         block({ label: "Decrypted Plaintext on Server", value: check.text, valueClass: "tok", spaced: true }),
       );
 
+      const attackReady = val.replace(/[;=]/g, "").startsWith(":role<admin");
       setVerdict(verdictDiv, check.isAdmin ? "bad" : "good",
         "Server evaluated: ", bold(`role=${check.isAdmin ? "ADMIN" : "USER"}`),
-        ` (Access ${check.isAdmin ? "GRANTED" : "standard user"})`);
-      btnFlip.disabled = false;
+        ` (Access ${check.isAdmin ? "GRANTED" : "standard user"}). `,
+        attackReady
+          ? "The issued token contains the known placeholder and is ready for the bit flip."
+          : "No attack was attempted: start the input with :role<admin, issue the token again, then flip it.");
+      btnFlip.disabled = !attackReady;
     } catch (error) {
       reportFailure(null, verdictDiv, error);
     } finally {
@@ -110,7 +145,10 @@ function initBitFlipDemo() {
   btnFlip.addEventListener("click", async () => {
     btnFlip.disabled = true;
     try {
-      const forged = await forgeAdminViaBitFlip(service);
+      if (!issuedToken || issuedUserData === null) {
+        throw new Error("Issue a token before attempting the bit flip.");
+      }
+      const forged = forgeAdminViaBitFlip(issuedToken, issuedUserData);
       const check = await service.verifyToken(forged.iv, forged.ciphertext);
 
       replace(outDiv,
@@ -160,7 +198,12 @@ function initPaddingOracleDemo() {
     try {
       const key = randomKey();
       const iv = randomIv();
-      const secret = secretIn.value || "Confidential Financial Data: $50,000 to Account 9876";
+      const secret = boundedUtf8Value(
+        secretIn,
+        "Confidential Financial Data: $50,000 to Account 9876",
+        "Secret text",
+        80,
+      );
       const { ciphertext } = await aesCbcEncrypt(key, utf8(secret), iv, true);
 
       const oracle = makePaddingOracle(key);
@@ -212,7 +255,12 @@ function initBeastDemo() {
     statusSpan.textContent = "Connecting to chained IV session...";
 
     try {
-      const secretCookie = cookieIn.value || "SESSION=sec_99a8b7c6";
+      const secretCookie = boundedAsciiValue(
+        cookieIn,
+        "SESSION=sec_99a8b7c6",
+        "Session cookie",
+        32,
+      );
       const session = new ChainedIvSession(secretCookie);
 
       const recovered = await recoverSecretViaBeast(session, secretCookie.length, {
@@ -258,7 +306,12 @@ function initForgeryDemo() {
     try {
       const serverKey = randomKey();
       const oracle = makePaddingOracle(serverKey);
-      const chosenPayload = payloadIn.value || "user=admin;role=superadmin;access=all;status=authorized";
+      const chosenPayload = boundedAsciiValue(
+        payloadIn,
+        "user=admin;role=superadmin;access=all;status=authorized",
+        "Target payload",
+        80,
+      );
 
       const forged = await forgeCiphertextWithOracle(oracle, chosenPayload, {
         onBlockForged: async (info) => {
@@ -303,6 +356,9 @@ function initGcmDemo() {
     btnRun.disabled = true;
     try {
       const { tamperRejected, decryptedProfile } = await gcmTokenRoundtrip("alice");
+      if (!tamperRejected) {
+        throw new Error("AES-GCM accepted modified ciphertext; the defensive control did not hold.");
+      }
 
       replace(outDiv,
         block({ className: "blk safe", label: "Authentic Plaintext", value: decryptedProfile, valueClass: "tok" }),
@@ -317,7 +373,7 @@ function initGcmDemo() {
 
       setVerdict(verdictDiv, "good",
         "🛡️ ", bold("Authentication Tag Verified: Tampering REJECTED!"),
-        ` (${tamperRejected ? "OperationError: Mac check failed" : "Passed"}). Not a single byte of untrusted plaintext was emitted.`);
+        " (OperationError: MAC check failed). Not a single byte of untrusted plaintext was emitted.");
     } catch (error) {
       reportFailure(null, verdictDiv, error);
     } finally {

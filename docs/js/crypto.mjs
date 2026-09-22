@@ -15,8 +15,21 @@ export const toHex = (b) => [...new Uint8Array(b)].map((x) => x.toString(16).pad
 export const fromHex = (s) => new Uint8Array(s.match(/../g)?.map((h) => parseInt(h, 16)) ?? []);
 export const utf8 = (s) => new TextEncoder().encode(s);
 export const utf8Decode = (b) => new TextDecoder().decode(b);
-// latin1: one char <-> one byte (useful for raw byte preserving strings)
-export const latin1Encode = (s) => Uint8Array.from(s, (c) => c.charCodeAt(0) & 0xff);
+// latin1: one character <-> one byte (useful for raw byte-preserving strings).
+// Reject characters outside the byte range instead of truncating them and later
+// reporting a successful recovery of different data.
+export function latin1Encode(value) {
+  const chars = [...String(value)];
+  const out = new Uint8Array(chars.length);
+  chars.forEach((char, index) => {
+    const codePoint = char.codePointAt(0);
+    if (codePoint > 0xff) {
+      throw new RangeError(`Character ${JSON.stringify(char)} cannot be represented as one Latin-1 byte`);
+    }
+    out[index] = codePoint;
+  });
+  return out;
+}
 export const latin1Decode = (b) => String.fromCharCode(...new Uint8Array(b));
 
 export function concat(...arrays) {

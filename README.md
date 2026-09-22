@@ -5,7 +5,7 @@
 ![Secret scan](https://github.com/llody9977/cbc-mode/actions/workflows/gitleaks.yml/badge.svg)
 ![License](https://img.shields.io/github/license/llody9977/cbc-mode)
 
-Cipher Block Chaining (CBC) was designed to eliminate the block-repetition leaks of ECB by XORing each plaintext block with the preceding ciphertext block. It delivers **confidentiality** — but **not integrity**. CBC is not authenticated encryption: on its own it cannot detect a modified ciphertext, and it depends on every IV being unpredictable. Used unauthenticated (the common case) or with a predictable IV, CBC is exploitable without the key: flipping ciphertext bits injects chosen changes into the plaintext, an endpoint that leaks padding validity becomes a decryption oracle, a predictable IV breaks IND-CPA security, and that same oracle forges ciphertext outright. The mode itself is not broken — CBC with Encrypt-then-MAC and unpredictable IVs is a sound construction — but it is unsafe by default and easy to misuse, which is why modern designs use AEAD instead.
+CBC encrypts data, but it does not prove that the ciphertext is authentic. Without authentication, an attacker can alter plaintext, exploit padding feedback, or forge messages without learning the key. CBC remains sound when every IV is unpredictable and Encrypt-then-MAC is implemented correctly. Modern systems usually choose AEAD because it supplies confidentiality and integrity as one construction.
 
 **[▶ Open the interactive site →](https://llody9977.github.io/cbc-mode/)** — every attack below runs live in your browser against real AES.
 
@@ -23,10 +23,9 @@ The site turns each weakness into an interactive demonstration you can drive. Th
 
 ## Structure
 
-- [`docs/`](docs/) — the GitHub Pages site and technical write-up: [`index.html`](docs/index.html), [`styles.css`](docs/styles.css), and theme-aware SVG [`diagrams/`](docs/diagrams/).
+- [`docs/`](docs/) — the GitHub Pages site and technical write-up: [`index.html`](docs/index.html), [`styles.css`](docs/styles.css), and SVG [`diagrams/`](docs/diagrams/). Its light-only visual system matches the sibling Secret Exposure articles.
 - [`docs/js/`](docs/js/) — the demo logic: [`crypto.mjs`](docs/js/crypto.mjs) (AES-CBC/GCM, PKCS#7) and [`attacks.mjs`](docs/js/attacks.mjs) (the four vectors), plus [`ui.mjs`](docs/js/ui.mjs) which wires them to the page.
 - [`test/`](test/) — a Node test suite that exercises the modules against real AES. The AES-CBC primitive is checked against the official NIST SP 800-38A §F.2.1 vectors; each attack vector is separately exercised end-to-end, including the progress-callback path the browser UI uses and secrets longer than one block.
-- [`reviews/`](reviews/) — the review audit trail and durable content decisions register.
 
 ## Develop
 
@@ -34,6 +33,7 @@ The site turns each weakness into an interactive demonstration you can drive. Th
 npm ci            # install eslint (tests need no dependencies)
 npm test          # node --test — verifies every vector against real AES
 npm run lint      # eslint
+npm run validate:html
 
 # preview the interactive site locally
 python3 -m http.server -d docs 8000   # then open http://localhost:8000

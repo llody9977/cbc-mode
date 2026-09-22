@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 
 import {
   aesCbcEncrypt, aesCbcDecrypt,
-  padPkcs7, unpadPkcs7, isValidPkcs7, fromHex, toHex, utf8, utf8Decode, latin1Decode,
+  padPkcs7, unpadPkcs7, isValidPkcs7, fromHex, toHex, utf8, utf8Decode, latin1Encode, latin1Decode,
   randomKey, randomIv,
 } from "../docs/js/crypto.mjs";
 
@@ -58,17 +58,34 @@ test("PKCS#7 padding and unpadding validates correctly", () => {
   assert.throws(() => unpadPkcs7(badPad));
 });
 
+test("Latin-1 conversion rejects characters that would otherwise be truncated", () => {
+  assert.throws(() => latin1Encode("😀"), /cannot be represented as one Latin-1 byte/);
+  assert.deepEqual(latin1Encode("café"), new Uint8Array([99, 97, 102, 233]));
+});
+
 test("Vector 1 — Bit-flipping escalates user privilege without knowing the key", async () => {
   const service = new ProfileCookieService();
-  const normal = await service.issueToken("regular_user");
+  const knownInput = ":role<admin";
+  const normal = await service.issueToken(knownInput);
   const normalCheck = await service.verifyToken(normal.iv, normal.ciphertext);
   assert.equal(normalCheck.valid, true);
   assert.equal(normalCheck.isAdmin, false);
 
-  const forged = await forgeAdminViaBitFlip(service);
+  const forged = forgeAdminViaBitFlip(normal, knownInput);
   const adminCheck = await service.verifyToken(forged.iv, forged.ciphertext);
   assert.equal(adminCheck.valid, true);
   assert.equal(adminCheck.isAdmin, true);
+  assert.notDeepEqual(forged.ciphertext, normal.ciphertext);
+});
+
+test("Vector 1 — Bit-flipping refuses to invent a hidden replacement token", async () => {
+  const service = new ProfileCookieService();
+  const normal = await service.issueToken("ordinary_user");
+
+  assert.throws(
+    () => forgeAdminViaBitFlip(normal, "ordinary_user"),
+    /must start with :role<admin/,
+  );
 });
 
 test("Vector 2 — Padding oracle recovers multi-block secret ciphertext", async () => {

@@ -6,11 +6,13 @@
   "description": "Why unauthenticated AES-CBC is unsafe — interactive demonstrations running real AES in the browser.",
   "scripts": {
     "test": "node --test",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "validate:html": "html-validate docs/index.html"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "eslint": "10.9.0"
+    "eslint": "10.11.0",
+    "html-validate": "11.16.0"
   },
   "license": "Apache-2.0"
 }

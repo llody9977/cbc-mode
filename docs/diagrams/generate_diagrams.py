@@ -1,9 +1,7 @@
-"""Generate the theme-aware SVG diagrams embedded in docs/index.html.
+"""Generate the SVG diagrams embedded in docs/index.html.
 
-The SVGs use CSS variables for theme-dependent colors (cards, backgrounds, borders,
-ink, and muted text) with a prefers-color-scheme: dark override. Semantic colors
-(navy, danger red, safe green, purple, amber, blue) remain fixed so they read clearly
-on both light and dark backgrounds.
+The palette follows the light-only Secret Exposure visual system used by the sibling
+interactive articles. Semantic colors retain the same meaning in every diagram.
 
 Color convention, applied consistently across every diagram: RED marks an attacker-
 controlled input or a successful attack outcome, GREEN marks a defense holding, PURPLE
@@ -17,7 +15,7 @@ import pathlib
 OUT = pathlib.Path(__file__).resolve().parent
 OUT.mkdir(parents=True, exist_ok=True)
 
-SANS = "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+SANS = "Arial, Helvetica, sans-serif"
 MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
 
 # Sentinels mapped to theme-aware CSS classes
@@ -25,15 +23,13 @@ INK, MUTED, NEU_F, NEU_S = "@ink", "@muted", "@neuf", "@neus"
 ARROW = "@arw"
 
 # Fixed semantic colors
-NAVY = "#1f3a5f"
-RED, GREEN, PURPLE, AMBER, GRAY, BLUE = "#dc2626", "#16a34a", "#6d28d9", "#b45309", "#64748b", "#2563eb"
+NAVY = "#006da0"
+RED, GREEN, PURPLE, AMBER = "#b42318", "#087c83", "#6d28d9", "#9a5b00"
 
 STYLE = (
     '<style>'
-    ':root{--card:#ffffff;--panel:#f8fafc;--border:#e2e8f0;--ink:#0f172a;--muted:#475569;'
-    '--neuf:#f1f5f9;--neus:#cbd5e1;--arw:#94a3b8}'
-    '@media (prefers-color-scheme:dark){:root{--card:#0d1117;--panel:#161b22;--border:#30363d;'
-    '--ink:#e6edf3;--muted:#9aa4b2;--neuf:#1c2330;--neus:#3d444d;--arw:#6e7681}}'
+    ':root{--card:#ffffff;--panel:#f0f8fb;--border:#d3e4eb;--ink:#142f40;--muted:#486371;'
+    '--neuf:#f0f8fb;--neus:#b9d3de;--arw:#7894a2}'
     '.cardb{fill:var(--card);stroke:var(--border)}.card{fill:var(--card)}'
     '.panel{fill:var(--panel);stroke:var(--border)}'
     '.neu{fill:var(--neuf);stroke:var(--neus)}.cellA{fill:var(--neuf);stroke:var(--neus)}'
@@ -59,19 +55,9 @@ def text(x, y, s, size=13, fill=INK, anchor="middle", weight="400", mono=False, 
     parts.append('</text>')
     return "".join(parts)
 
-def _rel_luminance(hex_color):
-    h = hex_color.lstrip("#")
-    if len(h) != 6:
-        return None
-    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
-    return (0.299 * r + 0.587 * g + 0.114 * b) / 255
-
 def box(x, y, w, h, label, fill=NEU_F, stroke=NEU_S, tc=INK, mono=False, rx=9, size=13, weight="600", lh=15, sw=1.5):
-    # Guard (regression for modes-cbc-vs-gcm.svg dark-mode contrast): a hardcoded hex
-    # fill does not switch with the theme, but INK/MUTED text does. Pairing them makes the
-    # label vanish in one theme — near-white text on a near-white box in dark mode. Neutral
-    # boxes must pass the NEU_F sentinel so both box and text are theme-aware; a fixed-literal
-    # fill is only allowed with a fixed-literal text color (the semantic badges).
+    # Neutral boxes must use the shared palette sentinels. A fixed semantic fill must
+    # also provide a fixed semantic text color so contrast remains deliberate.
     assert not (isinstance(fill, str) and fill.startswith("#") and tc in (INK, MUTED)), (
         f"box {label[:30]!r} pairs a hardcoded fill {fill} with theme-variable text {tc}; "
         f"use the NEU_F sentinel so the box tracks the theme"
@@ -123,11 +109,11 @@ def d1():
     # Left: AES-CBC Decryption
     b.append(panel(30, 96, 400, 240))
     b.append(text(230, 122, "AES-CBC Decryption (Malleable)", size=14, fill=RED, weight="700"))
-    b.append(box(60, 145, 140, 36, "Ciphertext C[i-1]", fill="#fee2e2", stroke=RED, tc="#991b1b", size=12))
+    b.append(box(60, 145, 140, 36, "Ciphertext C[i-1]", fill="#fff1f0", stroke=RED, tc=RED, size=12))
     b.append(box(250, 145, 140, 36, "Ciphertext C[i]", fill=NEU_F, stroke=NEU_S, tc=INK, size=12))
-    b.append(box(250, 210, 140, 36, "AES Decrypt D_K(·)", fill=NAVY, stroke="#0d1b2a", tc="#fff", size=12))
+    b.append(box(250, 210, 140, 36, "AES Decrypt D_K(·)", fill=NAVY, stroke=NAVY, tc="#fff", size=12))
     b.append(arrow(320, 181, 320, 210))
-    b.append(box(160, 266, 140, 36, "Plaintext P[i]", fill="#fee2e2", stroke=RED, tc="#991b1b", size=12))
+    b.append(box(160, 266, 140, 36, "Plaintext P[i]", fill="#fff1f0", stroke=RED, tc=RED, size=12))
     # XOR link
     b.append(path("M 130 181 L 130 250 L 210 250 L 210 266", color=RED))
     b.append(arrow(320, 246, 250, 266))
@@ -138,11 +124,11 @@ def d1():
     b.append(panel(470, 96, 400, 240))
     b.append(text(670, 122, "AES-GCM (Authenticated)", size=14, fill=GREEN, weight="700"))
     b.append(box(500, 145, 150, 36, "Ciphertext C", fill=NEU_F, stroke=NEU_S, tc=INK, size=12))
-    b.append(box(690, 145, 150, 36, "Auth Tag T", fill="#dcfce7", stroke=GREEN, tc="#166534", size=12))
-    b.append(box(500, 205, 340, 36, "Verify GHASH Tag T == T_computed?", fill=NAVY, stroke="#0d1b2a", tc="#fff", size=12))
+    b.append(box(690, 145, 150, 36, "Auth Tag T", fill="#e7f7f7", stroke=GREEN, tc=GREEN, size=12))
+    b.append(box(500, 205, 340, 36, "Verify GHASH Tag T == T_computed?", fill=NAVY, stroke=NAVY, tc="#fff", size=12))
     b.append(arrow(575, 181, 575, 205))
     b.append(arrow(765, 181, 765, 205))
-    b.append(box(500, 266, 340, 36, "Valid → Emit Plaintext | Tampered → Abort", fill="#dcfce7", stroke=GREEN, tc="#166534", size=12))
+    b.append(box(500, 266, 340, 36, "Valid → Emit Plaintext | Tampered → Abort", fill="#e7f7f7", stroke=GREEN, tc=GREEN, size=12))
     b.append(arrow(670, 241, 670, 266))
 
     b.append(text(W / 2, 358, "Scope: educational analysis of CBC mode vulnerabilities; all mechanisms verified against real Web Crypto AES.",
@@ -151,17 +137,17 @@ def d1():
 
 # ---------------- Diagram 2: Taxonomy ----------------
 def d2():
-    b = [box(W / 2 - 80, 62, 160, 44, "AES-CBC", fill=NAVY, stroke="#0d1b2a", tc="#fff", size=15, weight="700")]
+    b = [box(W / 2 - 80, 62, 160, 44, "AES-CBC", fill=NAVY, stroke=NAVY, tc="#fff", size=15, weight="700")]
     r1 = (40, 145, 250, 68)
     r2 = (325, 145, 250, 68)
     r3 = (610, 145, 250, 68)
 
     b.append(box(*r1, "Root cause 1 — No integrity\nCiphertext is malleable; modifying C[i-1]\nmutates P[i] deterministically",
-                 fill=NAVY, stroke="#0d1b2a", tc="#fff", size=11.5))
+                 fill=NAVY, stroke=NAVY, tc="#fff", size=11.5))
     b.append(box(*r2, "Root cause 2 — Padding oracle\nUnauthenticated decryption leaks 1-bit\nPKCS#7 padding validation status",
-                 fill=NAVY, stroke="#0d1b2a", tc="#fff", size=11.5))
+                 fill=NAVY, stroke=NAVY, tc="#fff", size=11.5))
     b.append(box(*r3, "Root cause 3 — Predictable IV\nUsing chained/predictable IVs breaks\nIND-CPA indistinguishability",
-                 fill=NAVY, stroke="#0d1b2a", tc="#fff", size=11.5))
+                 fill=NAVY, stroke=NAVY, tc="#fff", size=11.5))
 
     b.append(arrow(W / 2 - 20, 106, r1[0] + r1[2] / 2, r1[1] - 2))
     b.append(arrow(W / 2, 106, r2[0] + r2[2] / 2, r2[1] - 2))
@@ -198,7 +184,7 @@ def d2():
 # ---------------- Diagram 3: Vector 1 Bit-Flipping ----------------
 def d3():
     b = [box(40, 62, W - 80, 40, "Target profile: comment1=preview;userdata_input=[:role<admin];comment2=standard_user;role=user",
-             fill=NAVY, stroke="#0d1b2a", tc="#fff", size=13)]
+             fill=NAVY, stroke=NAVY, tc="#fff", size=13)]
 
     b.append(panel(40, 120, W - 80, 260))
     b.append(text(60, 146, "1. Normal Token Issued by Server", size=13, fill=INK, weight="700", anchor="start"))
@@ -210,14 +196,14 @@ def d3():
     b.append(box(440, 195, 360, 36, "C[2] (bytes 32..47)", fill=NEU_F, stroke=NEU_S, tc=INK, size=12))
 
     b.append(text(60, 260, "2. Attacker XORs C[1] bytes 0 and 5 with Δ = 0x01 (':'⊕';' and '<'⊕'='):", size=13, fill=RED, weight="700", anchor="start"))
-    b.append(box(60, 280, 360, 36, "C'[1] = C[1] ⊕ Δ (tampered)", fill="#fee2e2", stroke=RED, tc="#991b1b", size=12))
+    b.append(box(60, 280, 360, 36, "C'[1] = C[1] ⊕ Δ (tampered)", fill="#fff1f0", stroke=RED, tc=RED, size=12))
     b.append(box(440, 280, 360, 36, "C[2] (unchanged)", fill=NEU_F, stroke=NEU_S, tc=INK, size=12))
 
     b.append(arrow(240, 316, 240, 345))
     b.append(arrow(620, 316, 620, 345))
 
     b.append(box(60, 345, 360, 36, "P'[1] = Scrambled garbage", fill=NEU_F, stroke=NEU_S, tc=MUTED, size=12))
-    b.append(box(440, 345, 360, 36, "P'[2] starts ';role=admin;' — FORGED ROLE", fill="#fee2e2", stroke=RED, tc="#991b1b", size=12, weight="700"))
+    b.append(box(440, 345, 360, 36, "P'[2] starts ';role=admin;' — FORGED ROLE", fill="#fff1f0", stroke=RED, tc=RED, size=12, weight="700"))
 
     b.append(text(W / 2, 405, "Scope: demonstrated on local ProfileCookieService; no knowledge of secret key required.",
                   size=10.5, fill=MUTED))
@@ -226,19 +212,19 @@ def d3():
 # ---------------- Diagram 4: Vector 2 Padding Oracle Decryption ----------------
 def d4():
     b = [box(40, 62, W - 80, 40, "Padding Oracle: returns True if decrypted plaintext has valid PKCS#7 padding",
-             fill=NAVY, stroke="#0d1b2a", tc="#fff", size=13)]
+             fill=NAVY, stroke=NAVY, tc="#fff", size=13)]
 
     b.append(panel(40, 116, W - 80, 220))
     b.append(text(60, 140, "Iterative byte recovery from byte 15 down to 0:", size=13, fill=INK, weight="700", anchor="start"))
 
     b.append(box(60, 160, 360, 40, "Craft probe block C' with candidate byte at position 15\nTarget padding: 0x01", fill=NEU_F, stroke=NEU_S, tc=INK, size=11.5))
     b.append(arrow(420, 180, 470, 180))
-    b.append(box(470, 160, 370, 56, "Oracle returns True for ANY valid PKCS#7 ending\nOne candidate gives 0x01 → I[15] = C'[15] ⊕ 0x01\n(recheck byte 14 to reject 0x02 0x02 …)", fill="#ede9fe", stroke=PURPLE, tc="#5b21b6", size=11.5))
+    b.append(box(470, 160, 370, 56, "Oracle returns True for ANY valid PKCS#7 ending\nOne candidate gives 0x01 → I[15] = C'[15] ⊕ 0x01\n(recheck byte 14 to reject 0x02 0x02 …)", fill="#f2edff", stroke=PURPLE, tc=PURPLE, size=11.5))
 
     b.append(arrow(655, 216, 655, 238))
-    b.append(box(470, 238, 370, 40, "Set C'[15] = I[15] ⊕ 0x02, test C'[14] for padding 0x02\nReveals intermediate byte I[14] = C'[14] ⊕ 0x02", fill="#ede9fe", stroke=PURPLE, tc="#5b21b6", size=11.5))
+    b.append(box(470, 238, 370, 40, "Set C'[15] = I[15] ⊕ 0x02, test C'[14] for padding 0x02\nReveals intermediate byte I[14] = C'[14] ⊕ 0x02", fill="#f2edff", stroke=PURPLE, tc=PURPLE, size=11.5))
     b.append(arrow(470, 258, 420, 258))
-    b.append(box(60, 238, 360, 40, "Compute Plaintext: P[i] = I ⊕ C[i-1]\nQueries: ≈ 256 × L worst case (avg ≈ 128 × L)", fill="#fee2e2", stroke=RED, tc="#991b1b", size=12, weight="700"))
+    b.append(box(60, 238, 360, 40, "Compute Plaintext: P[i] = I ⊕ C[i-1]\nQueries: ≈ 256 × L worst case (avg ≈ 128 × L)", fill="#fff1f0", stroke=RED, tc=RED, size=12, weight="700"))
 
     b.append(text(W / 2, 360, "Scope: demonstrated against local mock oracle (makePaddingOracle); key never exposed.",
                   size=10.5, fill=MUTED))
@@ -247,19 +233,19 @@ def d4():
 # ---------------- Diagram 5: Vector 3 BEAST Predictable IV ----------------
 def d5():
     b = [box(40, 62, W - 80, 40, "TLS 1.0 Chained IV Vulnerability: Record N+1 uses Record N's last ciphertext block as IV",
-             fill=NAVY, stroke="#0d1b2a", tc="#fff", size=13)]
+             fill=NAVY, stroke=NAVY, tc="#fff", size=13)]
 
     b.append(panel(40, 116, W - 80, 230))
     b.append(text(60, 140, "Chosen-Plaintext Guess Alignment (BEAST):", size=13, fill=INK, weight="700", anchor="start"))
 
     b.append(box(60, 160, 370, 44, "1. Target Request (Record N):\nCapture C_target = E_K(IV_target ⊕ (Pad ‖ Secret))", fill=NEU_F, stroke=NEU_S, tc=INK, size=11.5))
-    b.append(box(470, 160, 370, 44, "2. Predictable Next IV:\nAttacker knows IV_next = C_last", fill="#fef3c7", stroke=AMBER, tc="#92400e", size=11.5))
+    b.append(box(470, 160, 370, 44, "2. Predictable Next IV:\nAttacker knows IV_next = C_last", fill="#fff6df", stroke=AMBER, tc=AMBER, size=11.5))
 
     b.append(arrow(245, 204, 245, 230))
     b.append(arrow(655, 204, 655, 230))
 
     b.append(box(60, 230, 780, 50, "3. Probe Request (Record N+1): Attacker submits P_guess = IV_next ⊕ IV_target ⊕ (Pad ‖ Candidate)\nCipher computes: E_K(P_guess ⊕ IV_next) = E_K(IV_target ⊕ (Pad ‖ Candidate))\nWhen C_probe == C_target → Candidate is the exact secret byte!",
-                 fill="#fee2e2", stroke=RED, tc="#991b1b", size=12, weight="600"))
+                 fill="#fff1f0", stroke=RED, tc=RED, size=12, weight="600"))
 
     b.append(text(W / 2, 368, "Scope: educational simulation of CVE-2011-3389 against local ChainedIvSession.",
                   size=10.5, fill=MUTED))
@@ -268,20 +254,20 @@ def d5():
 # ---------------- Diagram 6: Vector 4 CBC-R Forgery ----------------
 def d6():
     b = [box(40, 62, W - 80, 40, "CBC-R Forgery: valid ciphertext for a chosen plaintext, from a padding oracle alone (no key)",
-             fill=NAVY, stroke="#0d1b2a", tc="#fff", size=13)]
+             fill=NAVY, stroke=NAVY, tc="#fff", size=13)]
 
     b.append(panel(40, 116, W - 80, 230))
     b.append(text(60, 140, "Backwards Ciphertext Block Synthesis:", size=13, fill=INK, weight="700", anchor="start"))
 
     b.append(box(60, 160, 240, 44, "1. Pick Random C[n]\nLast ciphertext block", fill=NEU_F, stroke=NEU_S, tc=INK, size=11.5))
     b.append(arrow(300, 182, 340, 182))
-    b.append(box(340, 160, 240, 44, "2. Oracle recovers I[n]\nI[n] = D_K(C[n])", fill="#ede9fe", stroke=PURPLE, tc="#5b21b6", size=11.5))
+    b.append(box(340, 160, 240, 44, "2. Oracle recovers I[n]\nI[n] = D_K(C[n])", fill="#f2edff", stroke=PURPLE, tc=PURPLE, size=11.5))
     b.append(arrow(580, 182, 620, 182))
-    b.append(box(620, 160, 220, 44, "3. Compute C[n-1]\nC[n-1] = I[n] ⊕ P[n]", fill="#fef3c7", stroke=AMBER, tc="#92400e", size=11.5))
+    b.append(box(620, 160, 220, 44, "3. Compute C[n-1]\nC[n-1] = I[n] ⊕ P[n]", fill="#fff6df", stroke=AMBER, tc=AMBER, size=11.5))
 
     b.append(arrow(730, 204, 730, 230))
     b.append(box(60, 230, 780, 62, "4. Repeat backwards for C[n-2]... down to IV = I[1] ⊕ P[1]\nResult: (IV, C[1], ..., C[n]) decrypts to the chosen plaintext, valid PKCS#7\nREQUIRES the endpoint to accept an attacker-supplied IV, else block 1 is garbage",
-                 fill="#fee2e2", stroke=RED, tc="#991b1b", size=12, weight="700"))
+                 fill="#fff1f0", stroke=RED, tc=RED, size=12, weight="700"))
 
     b.append(text(W / 2, 368, "Scope: demonstrated using local makePaddingOracle and forgeCiphertextWithOracle.",
                   size=10.5, fill=MUTED))
