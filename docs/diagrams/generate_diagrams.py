@@ -142,11 +142,11 @@ def d2():
     r2 = (325, 145, 250, 68)
     r3 = (610, 145, 250, 68)
 
-    b.append(box(*r1, "Root cause 1 — No integrity\nCiphertext is malleable; modifying C[i-1]\nmutates P[i] deterministically",
+    b.append(box(*r1, "Condition 1 — No integrity\nCiphertext is malleable; modifying C[i-1]\nmutates P[i] deterministically",
                  fill=NAVY, stroke=NAVY, tc="#fff", size=11.5))
-    b.append(box(*r2, "Root cause 2 — Padding oracle\nUnauthenticated decryption leaks 1-bit\nPKCS#7 padding validation status",
+    b.append(box(*r2, "Condition 2 — Padding feedback\nUnauthenticated decryption leaks 1-bit\nPKCS#7 padding validation status",
                  fill=NAVY, stroke=NAVY, tc="#fff", size=11.5))
-    b.append(box(*r3, "Root cause 3 — Predictable IV\nUsing chained/predictable IVs breaks\nIND-CPA indistinguishability",
+    b.append(box(*r3, "Condition 3 — Predictable IV\nUsing chained/predictable IVs breaks\nIND-CPA indistinguishability",
                  fill=NAVY, stroke=NAVY, tc="#fff", size=11.5))
 
     b.append(arrow(W / 2 - 20, 106, r1[0] + r1[2] / 2, r1[1] - 2))
@@ -172,14 +172,14 @@ def d2():
     b.append(arrow(r1[0] + r1[2] / 2, r1[1] + r1[3], vs[0][0] + vs[0][1] / 2, vy - 2))
     b.append(arrow(r2[0] + r2[2] / 2, r2[1] + r2[3], vs[1][0] + vs[1][1] / 2, vy - 2))
     b.append(arrow(r3[0] + r3[2] / 2, r3[1] + r3[3], vs[2][0] + vs[2][1] / 2, vy - 2))
-    # Only the root-cause-2 edge is drawn: the padding oracle is what supplies D_K.
-    # Vector 4 also rests on root cause 1, which the Vector 4 prose states.
+    # Only the padding-feedback edge is drawn: the oracle is what supplies D_K.
+    # Vector 4 also depends on missing integrity, which the Vector 4 prose states.
     b.append(arrow(r2[0] + r2[2] / 2, r2[1] + r2[3], vs[3][0] + vs[3][1] / 2, vy - 2))
 
     b.append(text(W / 2, 362, "Scope: educational analysis of CBC mode vulnerabilities; all attacks demonstrated against self-contained local oracles.",
                   size=10.5, fill=MUTED))
-    return svg(W, 378, "CBC mode's three root causes and four attack vectors", "".join(b),
-               subtitle="structural flaws in unauthenticated CBC mode and their attack manifestations")
+    return svg(W, 378, "CBC mode's three failure conditions and four attack vectors", "".join(b),
+               subtitle="conditions that make unauthenticated CBC attacks practical")
 
 # ---------------- Diagram 3: Vector 1 Bit-Flipping ----------------
 def d3():

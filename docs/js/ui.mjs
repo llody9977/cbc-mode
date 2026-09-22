@@ -150,6 +150,9 @@ function initBitFlipDemo() {
       }
       const forged = forgeAdminViaBitFlip(issuedToken, issuedUserData);
       const check = await service.verifyToken(forged.iv, forged.ciphertext);
+      if (!check.valid || !check.isAdmin) {
+        throw new Error("The forged token was not accepted with the intended admin role.");
+      }
 
       replace(outDiv,
         block({
@@ -222,7 +225,12 @@ function initPaddingOracleDemo() {
         },
       });
 
-      recoveredBox.textContent = utf8Decode(result.unpaddedPlaintext);
+      const recoveredText = utf8Decode(result.unpaddedPlaintext);
+      if (recoveredText !== secret) {
+        throw new Error("The recovered plaintext did not match the encrypted secret.");
+      }
+
+      recoveredBox.textContent = recoveredText;
       statusSpan.textContent = `Done in ${result.queryCount} total queries.`;
 
       setVerdict(verdictDiv, "bad",
@@ -271,7 +279,12 @@ function initBeastDemo() {
         },
       });
 
-      recoveredBox.textContent = latin1Decode(recovered);
+      const recoveredText = latin1Decode(recovered);
+      if (recoveredText !== secretCookie) {
+        throw new Error("The recovered cookie did not match the session secret.");
+      }
+
+      recoveredBox.textContent = recoveredText;
       statusSpan.textContent = `Session cookie recovered (${recovered.length}/${secretCookie.length} bytes).`;
 
       setVerdict(verdictDiv, "bad",
@@ -324,16 +337,20 @@ function initForgeryDemo() {
 
       // Verify what the server's real decryption produces:
       const decrypted = await aesCbcDecrypt(serverKey, forged.ciphertext, forged.iv, true);
+      const decryptedText = latin1Decode(decrypted);
+      if (decryptedText !== chosenPayload) {
+        throw new Error("The forged ciphertext did not decrypt to the chosen payload.");
+      }
 
       replace(outDiv,
         block({ className: "blk safe", label: "Forged IV (Calculated by CBC-R — the attacker must be able to supply it)", value: toHex(forged.iv) }),
         block({ className: "blk safe", label: `Forged Ciphertext (${forged.ciphertext.length} bytes)`, value: toHex(forged.ciphertext), spaced: true }),
-        block({ label: "Server Decrypted Plaintext (Zero errors, valid PKCS#7)", value: latin1Decode(decrypted), valueClass: "tok", spaced: true }),
+        block({ label: "Server Decrypted Plaintext (Zero errors, valid PKCS#7)", value: decryptedText, valueClass: "tok", spaced: true }),
       );
 
       setVerdict(verdictDiv, "bad",
         "🚨 ", bold("Arbitrary Ciphertext Forgery (CBC-R)!"),
-        " The attacker synthesized valid ciphertext for their chosen message using ONLY the decryption padding oracle — zero key access and zero encryption function calls. Every block lands as chosen because the forged IV is accepted; against an endpoint that fixes the IV, the first block would decrypt to garbage.");
+        " The attacker synthesized valid ciphertext for their chosen message using ONLY the decryption padding oracle — no key and no encryption oracle. Every block lands as chosen because the forged IV is accepted; against an endpoint that fixes the IV, the first block would decrypt to garbage.");
     } catch (error) {
       reportFailure(statusSpan, verdictDiv, error);
     } finally {

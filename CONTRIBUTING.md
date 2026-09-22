@@ -12,7 +12,7 @@ Thanks for your interest in cbc-mode.
 0. Install the local hooks once: `pipx install pre-commit && pre-commit install && pre-commit install --hook-type pre-push`. They block a commit or push that contains a secret.
 1. Fork and branch from `main` (`feature/short-description` or `fix/short-description`).
 2. Keep the change focused; one logical change per pull request.
-3. Add or update tests, and make sure the existing suite and linters pass locally (`npm test` and `npm run lint`).
+3. Add or update tests, install the browser runtime once with `npx playwright install chromium`, and make sure the existing suite and linters pass locally (`npm test`, `npm run lint`, and `npm run validate:html`).
 4. Review the change for correctness and security before opening the PR.
 5. Open a pull request against `main` and fill in the PR template.
 

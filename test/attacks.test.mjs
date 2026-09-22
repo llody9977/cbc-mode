@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import {
   aesCbcEncrypt, aesCbcDecrypt,
   padPkcs7, unpadPkcs7, isValidPkcs7, fromHex, toHex, utf8, utf8Decode, latin1Encode, latin1Decode,
-  randomKey, randomIv,
+  randomKey, randomIv, splitBlocks, blockAt, xorBytes,
 } from "../docs/js/crypto.mjs";
 
 import {
@@ -61,6 +61,23 @@ test("PKCS#7 padding and unpadding validates correctly", () => {
 test("Latin-1 conversion rejects characters that would otherwise be truncated", () => {
   assert.throws(() => latin1Encode("😀"), /cannot be represented as one Latin-1 byte/);
   assert.deepEqual(latin1Encode("café"), new Uint8Array([99, 97, 102, 233]));
+});
+
+test("crypto helpers reject malformed or silently truncated inputs", async () => {
+  assert.throws(() => fromHex("abc"), /even number/);
+  assert.throws(() => fromHex("zz"), /hexadecimal/);
+  assert.throws(() => splitBlocks(new Uint8Array(17)), /multiple of block size/);
+  assert.throws(() => blockAt(new Uint8Array(16), 1), /outside/);
+  assert.throws(() => xorBytes(new Uint8Array(1), new Uint8Array(2)), /equal length/);
+
+  await assert.rejects(
+    () => aesCbcEncrypt(new Uint8Array(15), new Uint8Array(16), randomIv(), false),
+    /AES key must contain/,
+  );
+  await assert.rejects(
+    () => aesCbcDecrypt(randomKey(), new Uint8Array(15), randomIv(), false),
+    /non-empty multiple/,
+  );
 });
 
 test("Vector 1 — Bit-flipping escalates user privilege without knowing the key", async () => {
